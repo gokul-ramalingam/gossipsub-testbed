@@ -1,0 +1,11 @@
+# Files that the image does not need. node_modules is installed in the image
+# from the lockfile, not copied from the machine.
+node_modules/
+test/
+.idea/
+Dockerfile
+.dockerignore
+.gitignore
+.prettierignore
+.prettierrc.json
+eslint.config.js

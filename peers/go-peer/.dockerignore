@@ -1,0 +1,5 @@
+# Files that the image does not need.
+.idea/
+Dockerfile
+.dockerignore
+**/*_test.go
