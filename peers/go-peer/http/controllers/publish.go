@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -10,7 +11,7 @@ import (
 	"go-peer/common"
 	"go-peer/common/types"
 	"go-peer/common/utils"
-	"go-peer/services"
+	"go-peer/http/services"
 )
 
 // PublishController handles the /publish/* endpoints.
@@ -18,10 +19,11 @@ type PublishController struct {
 	service *services.PublishService // publisher state and publish loop
 }
 
-// NewPublishController returns a controller with a new publish service.
-func NewPublishController() *PublishController {
+// NewPublishController returns a controller with a new publish service that
+// publishes with publisher and logs to logger.
+func NewPublishController(publisher services.Publisher, logger *slog.Logger) *PublishController {
 	return &PublishController{
-		service: services.NewPublishService(),
+		service: services.NewPublishService(publisher, logger),
 	}
 }
 

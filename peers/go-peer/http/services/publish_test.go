@@ -1,0 +1,145 @@
+package services
+
+import (
+	"context"
+	"errors"
+	"io"
+	"log/slog"
+	"sync"
+	"testing"
+	"time"
+
+	"go-peer/common"
+	"go-peer/common/types"
+	"go-peer/common/utils"
+)
+
+// fakePublisher records the published messages, or fails each publish with err.
+type fakePublisher struct {
+	err error // returned by each Publish; nil means success
+
+	mu       sync.Mutex      // guards messages
+	messages []types.Message // decoded messages, in publish order
+}
+
+// Publish decodes and records one message, or returns err.
+func (f *fakePublisher) Publish(_ context.Context, data []byte) error {
+	if f.err != nil {
+		return f.err
+	}
+
+	msg, err := utils.DecodeMessage(data)
+	if err != nil {
+		return err
+	}
+
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.messages = append(f.messages, msg)
+
+	return nil
+}
+
+// published returns a copy of the recorded messages.
+func (f *fakePublisher) published() []types.Message {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return append([]types.Message(nil), f.messages...)
+}
+
+// newTestService returns a publish service with publisher and a logger that discards its lines.
+func newTestService(t *testing.T, publisher Publisher) *PublishService {
+	t.Helper()
+	t.Setenv("PEER_NAME", "go-0")
+
+	return NewPublishService(publisher, slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// waitIdle waits up to 5 s until the run of service has ended, and returns its status.
+func waitIdle(t *testing.T, service *PublishService) types.PublishStatus {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+
+	for service.Status().Publishing {
+		if time.Now().After(deadline) {
+			t.Fatal("the run did not end within 5 s")
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	return service.Status()
+}
+
+// TestTimedRun checks that a run of 1 s at 50 msg/s publishes 50 messages,
+// with seq 1 to 50, the publisher name and the requested size.
+func TestTimedRun(t *testing.T) {
+	publisher := &fakePublisher{}
+	service := newTestService(t, publisher)
+
+	if _, err := service.Start(types.StartParams{RunID: "t1", Rate: 50, Size: 1024, DurationS: 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	status := waitIdle(t, service)
+	if status.Attempts != 50 || status.Success != 50 || status.Errors != 0 || status.LastSeq != 50 {
+		t.Fatalf("status %+v, want 50 attempts, 50 success, 0 errors, last seq 50", status)
+	}
+
+	messages := publisher.published()
+	for i, msg := range messages {
+		if msg.Seq != uint64(i+1) || msg.RunID != "t1" || msg.Publisher != "go-0" {
+			t.Fatalf("message %d is %+v, want seq %d of run t1 from go-0", i, msg, i+1)
+		}
+	}
+
+	if len(messages) != 50 {
+		t.Fatalf("published %d messages, want 50", len(messages))
+	}
+}
+
+// TestPublishErrors checks that failed publishes count as errors, not successes.
+func TestPublishErrors(t *testing.T) {
+	service := newTestService(t, &fakePublisher{err: errors.New("no topic")})
+
+	if _, err := service.Start(types.StartParams{RunID: "t2", Rate: 50, Size: 512, DurationS: 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	status := waitIdle(t, service)
+	if status.Attempts != 50 || status.Success != 0 || status.Errors != 50 {
+		t.Fatalf("status %+v, want 50 attempts, 0 success, 50 errors", status)
+	}
+}
+
+// TestOneRunAtATime checks that a second start during a run fails, and that
+// Stop ends the run.
+func TestOneRunAtATime(t *testing.T) {
+	service := newTestService(t, &fakePublisher{})
+
+	if _, err := service.Start(types.StartParams{RunID: "t3", Rate: 10, Size: 512}); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := service.Start(types.StartParams{RunID: "t4", Rate: 10, Size: 512}); !errors.Is(err, common.ErrAlreadyPublishing) {
+		t.Fatalf("second start gave %v, want ErrAlreadyPublishing", err)
+	}
+
+	// Stop only after the first publish; a stop before it ends the run with 0 attempts.
+	deadline := time.Now().Add(5 * time.Second)
+	for service.Status().Attempts < 1 {
+		if time.Now().After(deadline) {
+			t.Fatal("no publish within 5 s")
+		}
+
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	status := service.Stop()
+	if status.Publishing || status.RunID != "t3" || status.Attempts < 1 {
+		t.Fatalf("status after stop %+v, want run t3 stopped after at least 1 attempt", status)
+	}
+}

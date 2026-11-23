@@ -3,7 +3,7 @@ package metrics
 import (
 	"github.com/gin-gonic/gin"
 
-	"go-peer/controllers"
+	"go-peer/http/controllers"
 )
 
 // Register registers GET /metrics.

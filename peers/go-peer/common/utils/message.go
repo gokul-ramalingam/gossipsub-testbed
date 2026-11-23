@@ -34,3 +34,14 @@ func EncodeMessage(msg types.Message, size int) ([]byte, error) {
 
 	return data, nil
 }
+
+// DecodeMessage parses the JSON form of a message.
+func DecodeMessage(data []byte) (types.Message, error) {
+	var msg types.Message
+
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return types.Message{}, errors.Wrap(err, "decode message")
+	}
+
+	return msg, nil
+}

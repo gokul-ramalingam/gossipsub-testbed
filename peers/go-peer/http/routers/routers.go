@@ -1,22 +1,26 @@
 package routers
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"go-peer/common"
 	"go-peer/common/utils"
-	"go-peer/routers/metrics"
-	"go-peer/routers/publish"
-	"go-peer/routers/status"
+	"go-peer/http/routers/metrics"
+	"go-peer/http/routers/publish"
+	"go-peer/http/routers/status"
+	"go-peer/http/services"
 )
 
 // Init registers the peer API on the server. The paths are at the root, with no
 // /api prefix: the Go and JS peers share the same paths (docs/plan.md, HTTP API).
-func Init(server *gin.Engine) {
-	status.Register(server)
-	publish.Register(server)
+// The handlers publish and list the connected peers with node; the handlers
+// that log write to logger.
+func Init(server *gin.Engine, node services.Node, logger *slog.Logger) {
+	status.Register(server, node)
+	publish.Register(server, node, logger)
 	metrics.Register(server)
 
 	// Unknown paths and methods get the same JSON response body as the API.

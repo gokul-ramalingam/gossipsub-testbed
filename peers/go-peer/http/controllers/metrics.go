@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"go-peer/services"
+	"go-peer/http/services"
 )
 
 // MetricsController handles the /metrics endpoint.
