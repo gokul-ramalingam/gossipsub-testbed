@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { formatMicros, nowMicros } from '../src/utils/clock.js';
+
+test('nowMicros stays within 2 ms of the wall clock', () => {
+  for (let i = 0; i < 10_000; i++) {
+    const before = Date.now();
+    const micros = nowMicros();
+    const after = Date.now();
+
+    assert.ok(micros >= (before - 2) * 1000 && micros < (after + 3) * 1000, `${micros} µs vs [${before}, ${after}] ms`);
+  }
+});
+
+test('nowMicros never goes back', () => {
+  let last = nowMicros();
+
+  for (let i = 0; i < 100_000; i++) {
+    const now = nowMicros();
+    assert.ok(now >= last, `${now} < ${last}`);
+    last = now;
+  }
+});
+
+test('formatMicros writes six fraction digits in UTC, as the Go peer', () => {
+  assert.equal(formatMicros(1795409542279130), '2026-11-23T04:52:22.279130Z');
+  assert.equal(formatMicros(1795409542000001), '2026-11-23T04:52:22.000001Z');
+});
