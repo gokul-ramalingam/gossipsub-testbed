@@ -45,7 +45,7 @@ tests:
               publisher: go-1
             exp_annotations:
               summary: "go-2 misses messages of go-1 (run t)"
-              description: "go-2 received less than 95 % of the messages that go-1 published in the last 30 s, for 30 s, with at least 30 missing."
+              description: "go-2 received less than 95 % of the messages that go-1 published in the last 30 s, for 30 s, with at least 60 missing."
       # 10 s after the recovery: the 30 s window still holds 20 s of the isolation.
       - eval_time: 4m10s
         alertname: DeliveryCompletenessLow
@@ -57,7 +57,7 @@ tests:
               publisher: go-1
             exp_annotations:
               summary: "go-2 misses messages of go-1 (run t)"
-              description: "go-2 received less than 95 % of the messages that go-1 published in the last 30 s, for 30 s, with at least 30 missing."
+              description: "go-2 received less than 95 % of the messages that go-1 published in the last 30 s, for 30 s, with at least 60 missing."
       # 40 s after the recovery: resolved (about one window after the recovery).
       - eval_time: 4m40s
         alertname: DeliveryCompletenessLow
