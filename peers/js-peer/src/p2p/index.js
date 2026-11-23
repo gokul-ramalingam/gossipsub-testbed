@@ -72,7 +72,7 @@ export class P2PServer {
     this.#logStarted();
   }
 
-  /** Stops the discovery, leaves the topic, stops the node and closes all connections. */
+  /** Stops the discovery and the node, and closes all connections. It does not leave the topic (see Gossip.stop). */
   async stop() {
     this.#discovery.stop();
     this.#gossip.stop();

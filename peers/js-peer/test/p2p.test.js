@@ -119,3 +119,38 @@ test('the started event names the peer, the versions and the settings', async ()
     await server.stop();
   }
 });
+
+test('a restarted peer joins the mesh again at once, not after the prune backoff', async () => {
+  const ports = [await freePort(), await freePort()];
+  const peers = `js-0=/ip4/127.0.0.1/tcp/${ports[0]},js-1=/ip4/127.0.0.1/tcp/${ports[1]}`;
+  /** @param {number} i @param {object} logger */
+  const create = (i, logger) =>
+    createP2PServer(
+      loadConfig({ PEER_NAME: `js-${i}`, P2P_PORT: String(ports[i]), PEERS: peers, REDIAL_INTERVAL: '100ms' }),
+      logger,
+    );
+
+  const log0 = recordingLogger();
+  const js0 = await create(0, log0.logger);
+  let js1 = await create(1, recordingLogger().logger);
+  /** @param {string} event @param {string} remote */
+  const count = (event, remote) => log0.events.filter(([e, f]) => e === event && f.remote === remote).length;
+
+  try {
+    await Promise.all([js0.start(), js1.start()]);
+    await waitFor('js-0 grafts js-1', () => count('graft', 'js-1') >= 1);
+
+    // Stop js-1 as index.js does, then start it again with the same name
+    // (so the same peer ID) and port.
+    await js1.stop();
+    await waitFor('js-0 logs peer_disconnected for js-1', () => count(EVENT_PEER_DISCONNECTED, 'js-1') >= 1);
+
+    js1 = await create(1, recordingLogger().logger);
+    await js1.start();
+
+    // Within 5 s (waitFor), far below the prune backoff of 1 minute.
+    await waitFor('js-0 grafts the restarted js-1 again', () => count('graft', 'js-1') >= 2);
+  } finally {
+    await Promise.allSettled([js0.stop(), js1.stop()]);
+  }
+});

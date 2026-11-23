@@ -1,0 +1,9 @@
+# Chart of the gossipsub testbed: 3 Go and 3 JS GossipSub peers on one topic.
+apiVersion: v2
+name: gossipsub-testbed
+description: GossipSub interop testbed with Go (go-libp2p) and JS (js-libp2p) peers on one topic, which find each other through the DNS SRV records of a headless Service
+type: application
+# Version of the chart itself; change it when the templates or the values change.
+version: 0.1.0
+# Version of the peer images that this chart deploys by default.
+appVersion: "0.1.0"

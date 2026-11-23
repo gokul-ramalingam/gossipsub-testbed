@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -141,5 +142,30 @@ func TestOneRunAtATime(t *testing.T) {
 	status := service.Stop()
 	if status.Publishing || status.RunID != "t3" || status.Attempts < 1 {
 		t.Fatalf("status after stop %+v, want run t3 stopped after at least 1 attempt", status)
+	}
+}
+
+// TestRunDeadline checks that a timed run gets a deadline with the monotonic
+// clock reading of its start (Go writes it as "m=" in String), and a run
+// without a duration none. A deadline from time.Now().UTC() has no monotonic
+// reading, and the tick check then depends on the wall clock.
+func TestRunDeadline(t *testing.T) {
+	start := time.Now()
+
+	deadline := runDeadline(start, 20)
+	if got := deadline.Sub(start); got != 20*time.Second {
+		t.Fatalf("deadline is %s after the start, want 20s", got)
+	}
+
+	if !strings.Contains(deadline.String(), "m=") {
+		t.Fatalf("deadline %s has no monotonic clock reading", deadline)
+	}
+
+	if strings.Contains(runDeadline(start.UTC(), 20).String(), "m=") {
+		t.Fatal("a start from UTC() has a monotonic reading; the test does not check what it should")
+	}
+
+	if !runDeadline(start, 0).IsZero() {
+		t.Fatal("a run without a duration has a deadline")
 	}
 }

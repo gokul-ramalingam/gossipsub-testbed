@@ -182,9 +182,3 @@ func (g *gossip) sample(ctx context.Context) {
 		}
 	}
 }
-
-// close cancels the subscription and leaves the topic.
-func (g *gossip) close() {
-	g.sub.Cancel()
-	_ = g.topic.Close()
-}

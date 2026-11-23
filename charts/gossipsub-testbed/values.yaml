@@ -1,0 +1,65 @@
+# Values of the gossipsub testbed chart. Install:
+#
+#   helm install testbed charts/gossipsub-testbed -n dst --create-namespace
+#
+# The namespace is part of the SRV name that the peers look up
+# (_p2p._tcp.peers.<namespace>.svc.<clusterDomain>), so the templates take it
+# from the release; any namespace works.
+
+# DNS domain of the cluster; kind uses the Kubernetes default.
+clusterDomain: cluster.local
+
+# Ports of each peer: libp2p (TCP) and the HTTP API. They are the defaults of
+# the peers; the chart passes them so that the pod spec states them.
+ports:
+  p2p: 4001
+  http: 8080
+
+# Settings passed to every peer as environment variables. The others
+# (KEY_SEED, TOPIC) keep the defaults of the peers, which are the same in Go
+# and JS.
+peer:
+  logLevel: info
+  redialInterval: 5s
+
+# One StatefulSet per implementation. The StatefulSet name is the prefix of
+# the pod names (go-0, go-1, …), and each pod name is the name of its peer.
+implementations:
+  go:
+    replicas: 3
+    image:
+      repository: gossipsub-testbed/go-peer
+      tag: "0.1.0"
+      # The images are loaded into kind (kind load docker-image), not pulled.
+      pullPolicy: IfNotPresent
+    # User and group of the image (USER nobody of Alpine), as numbers:
+    # runAsNonRoot can check only a numeric user.
+    runAsUser: 65534
+    runAsGroup: 65534
+    resources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 500m
+        memory: 128Mi
+  js:
+    replicas: 3
+    image:
+      repository: gossipsub-testbed/js-peer
+      tag: "0.1.0"
+      pullPolicy: IfNotPresent
+    # User and group of the image (USER node of the Node image).
+    runAsUser: 1000
+    runAsGroup: 1000
+    # Node uses CPU in bursts (start, code compilation, message signing,
+    # garbage collection): about 60m on average at 10 msg/s, but with a limit
+    # of 500m the bursts were throttled, also during a run. 1 CPU leaves room
+    # for them; the request covers the average.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 96Mi
+      limits:
+        cpu: 1000m
+        memory: 256Mi

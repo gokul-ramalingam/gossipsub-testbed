@@ -150,10 +150,13 @@ func (s *Server) Start(ctx context.Context) {
 	s.logStarted()
 }
 
-// Close leaves the topic, then closes the host and all its connections.
+// Close closes the host and all its connections. It does not leave the
+// topic first: leaving sends a PRUNE to each mesh peer, and a PRUNE makes the
+// peers refuse this peer ID in their mesh for the prune backoff (1 minute).
+// A restarted pod has the same name and so the same peer ID, and would stay
+// out of every mesh for that minute. A closed connection sets no backoff, so
+// the restarted peer joins the meshes again at once.
 func (s *Server) Close() error {
-	s.gossip.close()
-
 	return s.host.Close()
 }
 

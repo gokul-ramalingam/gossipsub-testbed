@@ -86,10 +86,16 @@ export class Gossip {
     this.#sampler = setInterval(() => this.#sample(), SAMPLE_INTERVAL_MS);
   }
 
-  /** Leaves the topic and stops the logging and the sampling. */
+  /**
+   * Stops the logging and the sampling. It does not leave the topic: leaving
+   * sends a PRUNE to each mesh peer, and a PRUNE makes the peers refuse this
+   * peer ID in their mesh for the prune backoff (1 minute). A restarted pod
+   * has the same name and so the same peer ID, and would stay out of the
+   * meshes for that minute (seen on the cluster). The node closes the
+   * connections when it stops; a closed connection sets no backoff.
+   */
   stop() {
     clearInterval(this.#sampler);
-    this.#pubsub.unsubscribe(this.#topic);
     this.#pubsub.removeEventListener('gossipsub:message', this.#onMessage);
     this.#pubsub.removeEventListener('gossipsub:graft', this.#onGraft);
     this.#pubsub.removeEventListener('gossipsub:prune', this.#onPrune);

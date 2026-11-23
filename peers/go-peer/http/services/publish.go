@@ -60,13 +60,8 @@ func (s *PublishService) Start(params types.StartParams) (types.PublishStatus, e
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	startedAt := time.Now().UTC()
-
-	// The deadline ends a timed run. A zero deadline means the run lasts until Stop.
-	var deadline time.Time
-	if params.DurationS > 0 {
-		deadline = startedAt.Add(time.Duration(params.DurationS) * time.Second)
-	}
+	start := time.Now()
+	deadline := runDeadline(start, params.DurationS)
 
 	s.status = types.PublishStatus{
 		Publishing: true,
@@ -74,7 +69,7 @@ func (s *PublishService) Start(params types.StartParams) (types.PublishStatus, e
 		Rate:       params.Rate,
 		Size:       params.Size,
 		DurationS:  params.DurationS,
-		StartedAt:  startedAt,
+		StartedAt:  start.UTC(),
 	}
 	s.cancel = cancel
 	s.done = make(chan struct{})
@@ -213,4 +208,19 @@ func (s *PublishService) send(ctx context.Context, msg types.Message, size int) 
 	}
 
 	return "", nil
+}
+
+// runDeadline returns the end of a timed run that starts at start, or the zero
+// time for a run without a duration (until Stop). The deadline keeps the
+// monotonic clock reading of start, so the check of each tick against it does
+// not depend on the wall clock, which a VM can change during a run. A time
+// from UTC() has no monotonic reading: with it, a change of the wall clock
+// moved the last tick before the deadline, and a run of 20 s at 10 msg/s
+// published 201 messages on the cluster.
+func runDeadline(start time.Time, durationS int) time.Time {
+	if durationS <= 0 {
+		return time.Time{}
+	}
+
+	return start.Add(time.Duration(durationS) * time.Second)
 }

@@ -148,3 +148,70 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
+// TestRestartJoinsMeshAtOnce stops go-1 and starts it again with the same name
+// (so the same peer ID) and port, and checks that go-0 takes it back into its
+// mesh within a few seconds, not after the prune backoff (1 minute). Close
+// does not leave the topic, so it sends no PRUNE. The test passes also with a
+// Close that leaves the topic: go-libp2p-pubsub leaves in the background, and
+// in this test go-0 set no backoff either way. It guards the restart; the
+// case that needed the change is the JS peer (its test, p2p.test.js).
+func TestRestartJoinsMeshAtOnce(t *testing.T) {
+	ports := []int{freePort(t), freePort(t)}
+	peers := []types.Target{
+		{Name: "go-0", Addr: ma.StringCast(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", ports[0]))},
+		{Name: "go-1", Addr: ma.StringCast(fmt.Sprintf("/ip4/127.0.0.1/tcp/%d", ports[1]))},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	start := func(i int, log *eventLog) (*Server, context.CancelFunc) {
+		peerCtx, peerCancel := context.WithCancel(ctx)
+
+		server, err := New(peerCtx, Config{
+			PeerName:       peers[i].Name,
+			KeySeed:        testKeySeed,
+			Port:           ports[i],
+			Topic:          testTopic,
+			Discovery:      common.DiscoveryStatic,
+			StaticPeers:    peers,
+			RedialInterval: 100 * time.Millisecond,
+		}, slog.New(log))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		server.Start(peerCtx)
+
+		return server, peerCancel
+	}
+
+	log0 := newEventLog()
+	go0, _ := start(0, log0)
+	t.Cleanup(func() { _ = go0.Close() })
+
+	go1, stop1 := start(1, newEventLog())
+
+	waitFor(t, "go-0 grafts go-1", func() bool { return log0.count(common.EventGraft, "go-1") >= 1 })
+
+	// Stop go-1 as main does: cancel its context, then close it.
+	stop1()
+
+	if err := go1.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	waitFor(t, "go-0 logs peer_disconnected for go-1", func() bool {
+		return log0.count(common.EventPeerDisconnected, "go-1") >= 1
+	})
+
+	if n := log0.count(common.EventPrune, "go-1"); n != 0 {
+		t.Fatalf("go-0 logged %d prunes of go-1 after its close, want 0", n)
+	}
+
+	restarted, stopRestarted := start(1, newEventLog())
+	t.Cleanup(func() { stopRestarted(); _ = restarted.Close() })
+
+	waitFor(t, "go-0 grafts the restarted go-1 again", func() bool { return log0.count(common.EventGraft, "go-1") >= 2 })
+}

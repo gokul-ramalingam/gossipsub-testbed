@@ -3,13 +3,15 @@ import { test } from 'node:test';
 
 import { formatMicros, nowMicros } from '../src/utils/clock.js';
 
-test('nowMicros stays within 2 ms of the wall clock', () => {
+test('nowMicros stays in the millisecond of Date.now()', () => {
   for (let i = 0; i < 10_000; i++) {
     const before = Date.now();
     const micros = nowMicros();
     const after = Date.now();
 
-    assert.ok(micros >= (before - 2) * 1000 && micros < (after + 3) * 1000, `${micros} µs vs [${before}, ${after}] ms`);
+    // In [before, after + 1) ms; the never-go-back rule can keep it a few
+    // microseconds above after a correction.
+    assert.ok(micros >= before * 1000 && micros < (after + 1) * 1000 + 50, `${micros} µs vs [${before}, ${after}] ms`);
   }
 });
 
