@@ -1,0 +1,58 @@
+# Isolation of go-2 and js-2 for Scenario B (docs/phase3-plan.md).
+# Applied and deleted by scripts/isolate.sh, which also cuts the open
+# connections (a policy only blocks new ones: docs/phase3-plan.md, section 6).
+#
+# go-2 and js-2 can still reach each other, Prometheus can still scrape them,
+# and they can still resolve names. Everything else to or from them is dropped,
+# so they lose the other four peers. The kubelet probes are not affected
+# (traffic from the node is not checked), and the logs still reach
+# VictoriaLogs (the collector reads the files on the node).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: isolate
+  namespace: dst
+  labels:
+    app.kubernetes.io/part-of: gossipsub-testbed
+spec:
+  # The two isolated peers, by the pod name that the StatefulSet sets as a label.
+  podSelector:
+    matchExpressions:
+      - key: statefulset.kubernetes.io/pod-name
+        operator: In
+        values: [go-2, js-2]
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # From each other (all ports).
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: statefulset.kubernetes.io/pod-name
+                operator: In
+                values: [go-2, js-2]
+    # From Prometheus, to the HTTP port (/metrics).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # To each other (all ports).
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: statefulset.kubernetes.io/pod-name
+                operator: In
+                values: [go-2, js-2]
+    # DNS (CoreDNS in kube-system): the peers keep looking up the SRV record.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
