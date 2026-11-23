@@ -1,0 +1,11 @@
+# Values of victoria-logs-single 0.13.11 (VictoriaLogs v1.53.0) for the testbed
+# (release "vls", namespace "logging"). Only what differs from the defaults.
+# The collector (victoria-logs-collector.values.yaml) sends the logs here.
+
+server:
+  # Keep the logs 2 days, like the metrics; without a unit the chart's value is months.
+  retentionPeriod: 2d
+  persistentVolume:
+    # kind's default storage class (local-path) gives a directory on the node;
+    # a few runs need far less than the default 10Gi.
+    size: 2Gi

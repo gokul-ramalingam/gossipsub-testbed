@@ -1,0 +1,59 @@
+# Values of kube-prometheus-stack 93.1.2 for the testbed (release "kps", namespace "monitoring").
+# Only the settings that differ from the chart's defaults are here; see docs/phase2-plan.md, section 4.
+
+# Alertmanager: off for now; the alert state shows in Prometheus and Grafana (ALERTS series).
+# Can be turned on later with a receiver.
+alertmanager:
+  enabled: false
+
+defaultRules:
+  disabled:
+    # Fires because there is no Alertmanager, which is off on purpose (above).
+    PrometheusNotConnectedToAlertmanagers: true
+    # kind nodes run no NTP; they share the kernel clock of the Docker VM, so there is nothing to sync.
+    NodeClockNotSynchronising: true
+
+# On kind the controller manager, scheduler, etcd and kube-proxy listen on 127.0.0.1 only;
+# Prometheus cannot reach them, so their targets would stay down and fire alerts unrelated to the testbed.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    # Take PodMonitors, ServiceMonitors and rules from all releases and namespaces,
+    # not only those of this release (the peers' chart brings its own).
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    # Enough for the runs of the testbed.
+    retention: 2d
+
+grafana:
+  # Test-only password, not a secret: the testbed runs on a local kind cluster.
+  adminPassword: admin
+  # Remove provisioned data sources from Grafana once they are no longer in the provisioning files.
+  prune: true
+  # The VictoriaLogs data source plugin, pinned; Grafana downloads it from grafana.com
+  # before it starts (GF_PLUGINS_PREINSTALL_SYNC), so the cluster needs internet access.
+  plugins:
+    - victoriametrics-logs-datasource@0.33.1
+  # The logs of the peers, in VictoriaLogs (monitoring/victoria-logs-single.values.yaml).
+  # A fixed uid, so that the dashboard can refer to it.
+  additionalDataSources:
+    - name: VictoriaLogs
+      uid: victorialogs
+      type: victoriametrics-logs-datasource
+      access: proxy
+      url: http://vls-victoria-logs-single-server.logging.svc:9428
+      editable: false
+  sidecar:
+    datasources:
+      alertmanager:
+        # No Alertmanager, so no Alertmanager data source in Grafana.
+        enabled: false
