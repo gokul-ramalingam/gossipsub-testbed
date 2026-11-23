@@ -1,0 +1,30 @@
+{{- /*
+PodMonitor of the peers: tells the Prometheus Operator to scrape GET /metrics
+on the http port of every peer of this release (Go and JS). A PodMonitor and
+not a ServiceMonitor: the headless Service has only the p2p port, and the
+metrics belong to each pod, not to the Service.
+Needs the PodMonitor CRD of the Prometheus Operator; turn it off with
+monitoring.enabled=false on a cluster without it.
+*/ -}}
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: peers
+  labels:
+    {{- include "testbed.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "testbed.selectorLabels" . | nindent 6 }}
+  podMetricsEndpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.monitoring.scrapeInterval }}
+      relabelings:
+        # impl label (go or js) from the pod label, so the dashboard can group
+        # by implementation without a change to the peers. The scrape already
+        # adds namespace, pod and container.
+        - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
+          targetLabel: impl
+{{- end }}

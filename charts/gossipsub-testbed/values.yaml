@@ -63,3 +63,23 @@ implementations:
       limits:
         cpu: 1000m
         memory: 256Mi
+
+# Monitoring objects of the peers, for the Prometheus Operator of
+# kube-prometheus-stack (monitoring/). Set enabled to false on a cluster
+# without the Operator: the chart then installs the peers only.
+monitoring:
+  enabled: true
+  # How often Prometheus scrapes /metrics of each peer (the scrape interval of
+  # the plan); the rest of the cluster keeps the default of 30 s.
+  scrapeInterval: 5s
+  # Alert DeliveryCompletenessLow (templates/prometheusrule.yaml): fires for a
+  # subscriber that received less than `completeness` of a publisher's messages
+  # over 30 s, for 30 s, and at least `minMissing` messages are missing in the
+  # 30 s. The count keeps the start and the end of every run (when the counters
+  # of the peers, scraped up to 5 s apart, give a wrong ratio for a few seconds)
+  # from firing: there, at most 20 were missing at 10 msg/s; an isolation misses
+  # about 300 per 30 s. 30 = 3 s of publishing at 10 msg/s: scale it with the
+  # publish rate. See docs/phase2-alert-options.md.
+  alert:
+    completeness: 0.95
+    minMissing: 30

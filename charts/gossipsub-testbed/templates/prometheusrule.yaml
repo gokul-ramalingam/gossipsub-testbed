@@ -1,0 +1,47 @@
+{{- /*
+Alert rule of the testbed, loaded by the Prometheus of kube-prometheus-stack
+(it selects the rules of all namespaces). Behind monitoring.enabled, with the
+PodMonitor. Thresholds: monitoring.alert in values.yaml.
+*/ -}}
+{{- if .Values.monitoring.enabled }}
+{{- $ns := .Release.Namespace }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: gossipsub
+  labels:
+    {{- include "testbed.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: gossipsub-delivery
+      # Every 10 s instead of the default 30 s: "for: 30s" is then 3 to 4
+      # evaluations, and the fire and resolve times are known to ±10 s.
+      interval: 10s
+      rules:
+        - alert: DeliveryCompletenessLow
+          # Per subscriber (pod) and publisher of a run. The publisher's
+          # counter has pod="<publisher>"; label_replace gives it the label
+          # publisher, so that the two sides match on (run_id, publisher).
+          #   1. completeness over 30 s: received rate ÷ published rate
+          #   2. missing messages over 30 s: published − received
+          # "While the publisher publishes" follows from 2: at least
+          # minMissing messages were published in the 30 s.
+          expr: |
+            (
+              sum by (run_id, pod, publisher) (rate(gs_messages_received_total{namespace="{{ $ns }}"}[30s]))
+                / on (run_id, publisher) group_left
+              sum by (run_id, publisher) (label_replace(rate(gs_publish_success_total{namespace="{{ $ns }}"}[30s]), "publisher", "$1", "pod", "(.*)"))
+            ) < {{ .Values.monitoring.alert.completeness }}
+            and
+            (
+              sum by (run_id, publisher) (label_replace(increase(gs_publish_success_total{namespace="{{ $ns }}"}[30s]), "publisher", "$1", "pod", "(.*)"))
+                - on (run_id, publisher) group_right
+              sum by (run_id, pod, publisher) (increase(gs_messages_received_total{namespace="{{ $ns }}"}[30s]))
+            ) >= {{ .Values.monitoring.alert.minMissing }}
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: {{`"{{ $labels.pod }} misses messages of {{ $labels.publisher }} (run {{ $labels.run_id }})"`}}
+            description: {{`"{{ $labels.pod }} received less than`}} {{ mulf .Values.monitoring.alert.completeness 100 }}{{` % of the messages that {{ $labels.publisher }} published in the last 30 s, for 30 s, with at least`}} {{ .Values.monitoring.alert.minMissing }}{{` missing."`}}
+{{- end }}
