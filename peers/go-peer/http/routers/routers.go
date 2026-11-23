@@ -15,7 +15,7 @@ import (
 )
 
 // Init registers the peer API on the server. The paths are at the root, with no
-// /api prefix: the Go and JS peers share the same paths (docs/plan.md, HTTP API).
+// /api prefix: the Go and JS peers share the same paths (README.md, "The peers").
 // The handlers publish and list the connected peers with node; the handlers
 // that log write to logger.
 func Init(server *gin.Engine, node services.Node, logger *slog.Logger) {

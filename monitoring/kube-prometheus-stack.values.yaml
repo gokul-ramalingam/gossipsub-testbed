@@ -1,5 +1,5 @@
 # Values of kube-prometheus-stack 93.1.2 for the testbed (release "kps", namespace "monitoring").
-# Only the settings that differ from the chart's defaults are here; see docs/phase2-plan.md, section 4.
+# Only the settings that differ from the chart's defaults are here.
 
 # Alertmanager: off for now; the alert state shows in Prometheus and Grafana (ALERTS series).
 # Can be turned on later with a receiver.

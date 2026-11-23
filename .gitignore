@@ -1,1 +1,8 @@
 .idea
+# Raw data of the runs (scripts/run.sh)
+runs/
+# Working notes of the project (plans, step logs, closures)
+notes/
+scripts/screenshot.sh
+charts/gossipsub-testbed/dashboards/generate.py
+local.mk

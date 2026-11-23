@@ -19,7 +19,7 @@ VERSION  ?= 0.1.0
 GO_IMAGE := gossipsub-testbed/go-peer:$(VERSION)
 JS_IMAGE := gossipsub-testbed/js-peer:$(VERSION)
 
-# Pinned chart versions (docs/phase2-closure.md, section 1).
+# Pinned chart versions.
 KPS_VERSION ?= 93.1.2
 VLS_VERSION ?= 0.13.11
 VLC_VERSION ?= 0.3.8
@@ -32,14 +32,13 @@ ISOLATION  ?=
 RATE       ?= 10
 SIZE       ?= 1024
 
-# A run (a folder in runs/) and a message of it, for analyze and screenshot.
+# A run (a folder in runs/), for analyze.
 RUN ?=
-SEQ ?= 1500
 
 .DEFAULT_GOAL := help
 .PHONY: help tools up cluster images load monitoring logging peers reload status \
-        run-base run-iso isolate-on isolate-off isolate-check analyze screenshot \
-        dashboard grafana prometheus logs-ui test test-alert lint down
+        run-base run-iso isolate-on isolate-off isolate-check analyze \
+        grafana prometheus logs-ui test test-alert lint down
 
 help: ## List the targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -48,7 +47,7 @@ tools: ## Check that the needed tools are installed
 	@for t in docker kind kubectl helm jq curl gzip python3; do \
 	  command -v $$t >/dev/null && echo "ok      $$t" || echo "MISSING $$t"; done
 	@for t in go npm node shellcheck; do \
-	  command -v $$t >/dev/null && echo "ok      $$t (optional)" || echo "missing $$t (optional: tests, screenshots, lint)"; done
+	  command -v $$t >/dev/null && echo "ok      $$t (optional)" || echo "missing $$t (optional: tests, lint)"; done
 
 # --- cluster and deployment ------------------------------------------------------
 
@@ -113,14 +112,6 @@ isolate-check: ## Run the isolation checks only
 # 	@test -n "$(RUN)" || { echo "usage: make analyze RUN=<run_id>"; exit 2; }
 # 	python3 scripts/analyze.py runs/$(RUN)
 
-screenshot: ## Dashboard screenshot of a run: make screenshot RUN=<run_id> [SEQ=1500]
-	@test -n "$(RUN)" || { echo "usage: make screenshot RUN=<run_id> [SEQ=1500]"; exit 2; }
-	scripts/screenshot.sh $(RUN) $(SEQ)
-
-dashboard: ## Regenerate the dashboard JSON from its generator and load it
-	python3 charts/gossipsub-testbed/dashboards/generate.py
-	helm upgrade testbed charts/gossipsub-testbed -n $(NS) --wait
-
 # --- user interfaces (port-forwards; stop with Ctrl-C) ----------------------------
 
 grafana: ## Grafana on http://localhost:3000 (admin / admin)
@@ -144,3 +135,6 @@ test-alert: ## promtool test of the alert rule installed in the cluster
 lint: ## shellcheck of the scripts, helm lint of the chart
 	shellcheck scripts/*.sh
 	helm lint charts/gossipsub-testbed
+
+# Optional local targets, not in the repository (git-ignored).
+-include local.mk

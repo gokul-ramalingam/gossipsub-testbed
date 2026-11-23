@@ -1,6 +1,6 @@
-# Isolation of go-2 and js-2 for Scenario B (docs/phase3-plan.md).
+# Isolation of go-2 and js-2 for Scenario B (README.md, "How the isolation works").
 # Applied and deleted by scripts/isolate.sh, which also cuts the open
-# connections (a policy only blocks new ones: docs/phase3-plan.md, section 6).
+# connections (a policy only blocks new ones).
 #
 # go-2 and js-2 can still reach each other, Prometheus can still scrape them,
 # and they can still resolve names. Everything else to or from them is dropped,

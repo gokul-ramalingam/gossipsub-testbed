@@ -10,7 +10,7 @@ import (
 	"go-peer/common"
 )
 
-// Metrics of the peer (docs/plan.md, Metrics). The p2p layer and the publish
+// Metrics of the peer (README.md, "The peers"). The p2p layer and the publish
 // service write them, and the /metrics API reads them. The Go and JS peers use
 // the same names and labels. The scraper adds the labels of the scrape target.
 var (

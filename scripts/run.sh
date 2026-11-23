@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs one experiment of Phase 3 (docs/phase3-plan.md) and keeps its raw data
+# Runs one experiment (README.md, "Run the scenarios") and keeps its raw data
 # in runs/<run_id>/.
 #
 #   scripts/run.sh base [duration_s]                              Scenario A, default 300 s
@@ -29,8 +29,8 @@
 # kubectl, kind, docker, jq, curl, gzip, python3.
 #
 # The host is kept awake during the run: on macOS the Docker VM stalls for a few
-# seconds when the display wakes up after an idle sleep (docs/phase3-steps.md,
-# step 5). caffeinate on macOS, systemd-inhibit on Linux if present.
+# seconds when the display wakes up after an idle sleep (README.md, "Known
+# issues"). caffeinate on macOS, systemd-inhibit on Linux if present.
 set -euo pipefail
 
 # Namespace of the peers, name of the kind cluster, and the node whose clock is used.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Isolates go-2 and js-2 from the other four peers, and ends the isolation
-# (Scenario B, docs/phase3-plan.md).
+# (Scenario B; README.md, "How the isolation works").
 #
 #   scripts/isolate.sh enable  [timeline file]   policy on, open connections cut, checks
 #   scripts/isolate.sh disable [timeline file]   policy off, checks
@@ -9,7 +9,7 @@
 # enable applies k8s/isolate.yaml, then deletes the conntrack entries of go-2
 # and js-2 on every kind node: a NetworkPolicy blocks only new connections, and
 # without the deletion the open libp2p connections would keep carrying messages
-# (docs/phase3-plan.md, section 6). disable deletes the policy only.
+# disable deletes the policy only.
 #
 # Each step is one JSON line with the time of the kind node (the clock of the
 # peers) taken just before the step's command, and done_at when it returned;

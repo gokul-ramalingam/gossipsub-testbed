@@ -81,7 +81,7 @@ monitoring:
   # seconds (measured: over 30 missing without any loss, never for 30 s). An
   # isolation misses about 300 per 30 s. 60 = 6 s of publishing at 10 msg/s,
   # above a scrape interval plus a late scrape: scale it with the publish rate.
-  # See docs/phase2-alert-options.md and docs/phase3-steps.md (step 3).
+  # See README.md, "Alert" and docs/report.md.
   alert:
     completeness: 0.95
     minMissing: 60

@@ -1,7 +1,7 @@
 {
   "uid": "gossipsub-testbed",
   "title": "GossipSub testbed",
-  "description": "One run of the GossipSub testbed: workload, delivery, latency, connectivity, process health, telemetry, and the log evidence (docs/phase2-dashboard-layout.md).",
+  "description": "One run of the GossipSub testbed: workload, delivery, latency, connectivity, process health, telemetry, and the log evidence.",
   "tags": [
     "gossipsub",
     "testbed"
