@@ -81,7 +81,7 @@ func (s *PublishService) Start(params types.StartParams) (types.PublishStatus, e
 		"duration_s", params.DurationS,
 	)
 
-	go s.run(ctx, params, deadline, s.done)
+	go s.run(ctx, params, start, deadline, s.done)
 
 	return s.status, nil
 }
@@ -109,33 +109,39 @@ func (s *PublishService) Status() types.PublishStatus {
 	return s.status
 }
 
-// run publishes the first message at once and then one message per tick, until
-// Stop cancels ctx or a tick reaches the deadline. A timed run thus publishes
-// rate × duration messages.
-func (s *PublishService) run(ctx context.Context, params types.StartParams, deadline time.Time, done chan struct{}) {
+// run publishes message seq at its send time (sendTime), the first one at
+// once, until Stop cancels ctx or the next send time reaches the deadline. A
+// timed run thus publishes rate × duration messages. After a stall (CPU
+// throttling, a slow publish), the late messages go out at once, one after the
+// other, until the run is back on schedule. A time.Ticker instead drops the
+// ticks it cannot deliver: a stall of 0.6 s on the cluster lost 5 of 200
+// messages.
+func (s *PublishService) run(ctx context.Context, params types.StartParams, start, deadline time.Time, done chan struct{}) {
 	defer close(done)
 	defer s.finish()
 
-	ticker := time.NewTicker(time.Duration(float64(time.Second) / params.Rate))
-	defer ticker.Stop()
-
 	for seq := uint64(1); ; seq++ {
-		// select picks at random when Stop and a tick are both ready, so check
-		// ctx again before each publish.
+		at := sendTime(start, seq, params.Rate)
+		if !deadline.IsZero() && !at.Before(deadline) {
+			return
+		}
+
+		// Wait until the send time; a message that is already late goes out at once.
+		if wait := time.Until(at); wait > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(wait):
+			}
+		}
+
+		// select picks at random when Stop and the timer are both ready, and a
+		// late message does not wait at all, so check ctx before each publish.
 		if ctx.Err() != nil {
 			return
 		}
 
 		s.publishOne(ctx, params, seq)
-
-		select {
-		case <-ctx.Done():
-			return
-		case now := <-ticker.C:
-			if !deadline.IsZero() && !now.Before(deadline) {
-				return
-			}
-		}
 	}
 }
 
@@ -208,6 +214,14 @@ func (s *PublishService) send(ctx context.Context, msg types.Message, size int) 
 	}
 
 	return "", nil
+}
+
+// sendTime returns when message seq (from 1) of a run that starts at start is
+// due: start + (seq-1)/rate. It is computed from the start for each message,
+// not added up interval by interval, so rounding does not accumulate, and it
+// keeps the monotonic clock reading of start (see runDeadline).
+func sendTime(start time.Time, seq uint64, rate float64) time.Time {
+	return start.Add(time.Duration(float64(seq-1) * float64(time.Second) / rate))
 }
 
 // runDeadline returns the end of a timed run that starts at start, or the zero

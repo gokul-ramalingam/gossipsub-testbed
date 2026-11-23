@@ -17,7 +17,9 @@ import (
 
 // fakePublisher records the published messages, or fails each publish with err.
 type fakePublisher struct {
-	err error // returned by each Publish; nil means success
+	err     error         // returned by each Publish; nil means success
+	stallAt uint64        // seq of the message whose publish stalls; 0 means none
+	stall   time.Duration // how long the publish of message stallAt takes
 
 	mu       sync.Mutex      // guards messages
 	messages []types.Message // decoded messages, in publish order
@@ -32,6 +34,10 @@ func (f *fakePublisher) Publish(_ context.Context, data []byte) error {
 	msg, err := utils.DecodeMessage(data)
 	if err != nil {
 		return err
+	}
+
+	if f.stallAt != 0 && msg.Seq == f.stallAt {
+		time.Sleep(f.stall)
 	}
 
 	f.mu.Lock()
@@ -99,6 +105,39 @@ func TestTimedRun(t *testing.T) {
 
 	if len(messages) != 50 {
 		t.Fatalf("published %d messages, want 50", len(messages))
+	}
+}
+
+// TestStallCatchUp checks that a run catches up after a stall: one publish of
+// 300 ms (15 send times at 50 msg/s) in a run of 1 s still gives 50 messages,
+// and the run ends on time. A time.Ticker would drop the ticks of the stall.
+func TestStallCatchUp(t *testing.T) {
+	publisher := &fakePublisher{stallAt: 10, stall: 300 * time.Millisecond}
+	service := newTestService(t, publisher)
+
+	if _, err := service.Start(types.StartParams{RunID: "t5", Rate: 50, Size: 512, DurationS: 1}); err != nil {
+		t.Fatal(err)
+	}
+
+	status := waitIdle(t, service)
+	if status.Success != 50 || status.LastSeq != 50 {
+		t.Fatalf("status %+v, want 50 success, last seq 50", status)
+	}
+
+	if took := status.StoppedAt.Sub(status.StartedAt); took > 1100*time.Millisecond {
+		t.Fatalf("run took %s, want about 1 s", took)
+	}
+}
+
+// TestSendTime checks the send times of a run at 10 msg/s: the first message
+// at the start, message 200 at 19.9 s, so a run of 20 s has 200 messages.
+func TestSendTime(t *testing.T) {
+	start := time.Now()
+
+	for seq, want := range map[uint64]time.Duration{1: 0, 2: 100 * time.Millisecond, 200: 19900 * time.Millisecond, 201: 20 * time.Second} {
+		if got := sendTime(start, seq, 10).Sub(start); got != want {
+			t.Fatalf("message %d is due %s after the start, want %s", seq, got, want)
+		}
 	}
 }
 

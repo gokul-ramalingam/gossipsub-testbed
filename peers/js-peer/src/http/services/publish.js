@@ -89,7 +89,7 @@ export class PublishService {
     );
 
     this.#stop = new AbortController();
-    this.#done = this.#run(params, startedAtUs / 1000, this.#stop.signal);
+    this.#done = this.#run(params, performance.now(), this.#stop.signal);
 
     return this.status();
   }
@@ -125,10 +125,16 @@ export class PublishService {
    * Publishes the first message at once, then one per interval, until stop or
    * until the next message would be at or after the deadline. The schedule is
    * fixed from the start time, so that a delay of one message does not move
-   * the next ones.
+   * the next ones; after a stall, the late messages go out at once.
+   *
+   * The schedule is on the monotonic clock (performance.now()), not the wall
+   * clock (Date.now()), like the Go peer: a change of the wall clock during a
+   * run (a VM can set it) would otherwise move every later send time. The wall
+   * clock is still used for started_at, stopped_at and the ts_us of each
+   * message.
    *
    * @param {StartParams} params - the run
-   * @param {number} startedAtMs - start time, Unix milliseconds
+   * @param {number} startedAtMs - start time, on the monotonic clock (performance.now()), milliseconds
    * @param {AbortSignal} signal - aborted by stop
    */
   async #run(params, startedAtMs, signal) {
@@ -142,7 +148,7 @@ export class PublishService {
           break;
         }
 
-        const waitMs = dueMs - Date.now();
+        const waitMs = dueMs - performance.now();
         if (waitMs > 0) {
           await sleep(waitMs, undefined, { signal });
         }
