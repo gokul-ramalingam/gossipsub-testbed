@@ -80,12 +80,11 @@ test('two JS peers connect, list each other and log one event per peer', async (
     const listed = servers[0].connectedPeers();
     assert.equal(listed.length, 1);
     assert.equal(listed[0].name, 'js-1');
-    const js1 = (await peerId('gossipsub-testbed', 'js-1')).toString();
-    assert.deepEqual(Object.keys(listed[0]).sort(), ['addrs', 'name'], 'no separate peer ID field');
+    assert.equal(listed[0].peer_id, (await peerId('gossipsub-testbed', 'js-1')).toString());
     assert.ok(listed[0].addrs.length >= 1);
     assert.ok(
-      listed[0].addrs.every((addr) => addr.endsWith(`/p2p/${js1}`)),
-      `addresses with /p2p/<peer ID>: ${listed[0].addrs}`,
+      listed[0].addrs.every((addr) => !addr.includes('/p2p/')),
+      `addresses without /p2p/: ${listed[0].addrs}`,
     );
 
     await servers[1].stop();

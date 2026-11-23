@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,6 +92,12 @@ func TestStaticDiscoveryConnectsAll(t *testing.T) {
 
 		if listed[i].Name != want || listed[i].PeerID != id.String() || len(listed[i].Addrs) == 0 {
 			t.Fatalf("connected peer %d is %+v, want %s with peer ID %s and an address", i, listed[i], want, id)
+		}
+
+		for _, addr := range listed[i].Addrs {
+			if strings.Contains(addr, "/p2p/") {
+				t.Fatalf("address %s of %s has a /p2p/ part, want none", addr, want)
+			}
 		}
 	}
 }

@@ -169,8 +169,8 @@ func (s *Server) ID() peer.ID {
 }
 
 // ConnectedPeers returns the peers that the host is connected to, sorted by
-// name, with the remote address of each connection. With it, the server
-// satisfies the PeerLister interface of the HTTP services.
+// name, with the peer ID and the remote address of each connection. With it,
+// the server satisfies the PeerLister interface of the HTTP services.
 func (s *Server) ConnectedPeers() []types.ConnectedPeer {
 	network := s.host.Network()
 	peers := make([]types.ConnectedPeer, 0, len(network.Peers()))
@@ -213,6 +213,11 @@ func (s *Server) logStarted() {
 		"discovery", s.cfg.Discovery,
 		"redial_interval", s.cfg.RedialInterval.String(),
 		"yamux_keepalive", YamuxKeepAlive().String(),
+		"mesh_d", MeshD,
+		"mesh_dlo", MeshDlo,
+		"mesh_dhi", MeshDhi,
+		"mesh_dlazy", MeshDlazy,
+		"mesh_dout", MeshDout,
 	)
 }
 

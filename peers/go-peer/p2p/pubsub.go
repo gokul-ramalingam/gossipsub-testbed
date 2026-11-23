@@ -27,10 +27,60 @@ type gossip struct {
 	sub    *pubsub.Subscription // subscription to the topic
 }
 
-// newGossip starts GossipSub on the host, with the tracer, joins the topic and
-// subscribes to it. GossipSub runs until ctx is done.
+// Mesh parameters of the testbed. The JS peer uses the same values
+// (GOSSIPSUB_OPTIONS in src/constants.js).
+//
+// With the defaults (D = 6) and the 6 peers of the testbed, every peer has
+// the 5 others in its mesh: no gossip is used, almost every message comes
+// directly from the publisher, and each receiver gets about 4 duplicates per
+// message. With D = 3, a peer gets full messages from 3 peers and only gossip
+// (IHAVE) from the 2 others, so relays and the gossip path are part of the
+// experiment.
+const (
+	// MeshD is the number of mesh peers to aim for. Default: 6.
+	MeshD = 3
+	// MeshDlo is the lower bound: below it, the heartbeat adds mesh peers.
+	// Default: 5. Equal to MeshD, so that every peer keeps 3 mesh peers: with
+	// 6 peers, a mesh in which every peer has 3 mesh peers cannot split in
+	// two (each part would need at least 4 peers). With a lower bound of 2,
+	// two triangles would be a stable mesh, and a message would reach the
+	// other triangle only through gossip, a heartbeat (1 s) later.
+	MeshDlo = 3
+	// MeshDhi is the upper bound: above it, the heartbeat removes mesh peers.
+	// Default: 12. Low, so that the grafts of the other peers do not grow the
+	// mesh back to 5.
+	MeshDhi = 4
+	// MeshDlazy is the number of peers outside the mesh that get IHAVE gossip
+	// at each heartbeat. Default: 6. Here only 2 peers are outside the mesh.
+	MeshDlazy = 3
+	// MeshDout is the number of mesh places kept for peers that this peer
+	// dialed (a protection against an eclipse attack). Default: 2.
+	// go-libp2p-pubsub requires Dout < Dlo and Dout < D/2 (integer
+	// division), which is 0 for D = 3.
+	MeshDout = 0
+)
+
+// gossipSubParams returns the default GossipSub parameters with the mesh
+// parameters of the testbed.
+func gossipSubParams() pubsub.GossipSubParams {
+	params := pubsub.DefaultGossipSubParams()
+	params.D = MeshD
+	params.Dlo = MeshDlo
+	params.Dhi = MeshDhi
+	params.Dlazy = MeshDlazy
+	params.Dout = MeshDout
+
+	return params
+}
+
+// newGossip starts GossipSub on the host, with the mesh parameters of the
+// testbed and the tracer, joins the topic and subscribes to it. GossipSub runs
+// until ctx is done.
 func newGossip(ctx context.Context, logger *slog.Logger, h host.Host, names *peerNames, topicName string) (*gossip, error) {
-	ps, err := pubsub.NewGossipSub(ctx, h, pubsub.WithRawTracer(newTracer(logger, names, topicName)))
+	ps, err := pubsub.NewGossipSub(ctx, h,
+		pubsub.WithGossipSubParams(gossipSubParams()),
+		pubsub.WithRawTracer(newTracer(logger, names, topicName)),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "create gossipsub")
 	}

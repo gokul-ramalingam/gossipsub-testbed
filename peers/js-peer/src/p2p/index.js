@@ -14,12 +14,10 @@ import { Gossip, gossipsubService } from './pubsub.js';
 const DEPENDENCIES = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).dependencies;
 
 /**
- * One remote peer that this peer is connected to. The peer ID is in each
- * address, so it has no field of its own (as in the Go peer).
- *
  * @typedef {object} ConnectedPeer
  * @property {string} name - peer name, or the short peer ID if the peer is unknown
- * @property {string[]} addrs - full remote address of each connection, with /p2p/<peer ID>; a pair can have two
+ * @property {string} peer_id - libp2p peer ID
+ * @property {string[]} addrs - remote address of each connection, without /p2p/<peer ID>; a pair can have two
  */
 
 /**
@@ -106,8 +104,9 @@ export class P2PServer {
   connectedPeers() {
     const peers = this.#node.getPeers().map((id) => ({
       name: this.#names.name(id),
-      // The full address of each connection, with /p2p/<peer ID>, as /connections of the Go peer.
-      addrs: this.#node.getConnections(id).map((conn) => withPeerId(conn.remoteAddr.toString(), id.toString())),
+      peer_id: id.toString(),
+      // Without the /p2p/<peer ID> suffix of a dialed address, as /connections of the Go peer.
+      addrs: this.#node.getConnections(id).map((conn) => withoutPeerId(conn.remoteAddr.toString())),
     }));
 
     return peers.sort((a, b) => a.name.localeCompare(b.name));
@@ -138,21 +137,9 @@ export class P2PServer {
 }
 
 /**
- * Returns the address with /p2p/<peer ID> at its end. js-libp2p writes the
- * peer ID in the remote address of a connection that this peer dialed, but
- * not of an incoming one.
- *
- * @param {string} addr - the remote address
- * @param {string} peerId - peer ID of the remote peer
- * @returns {string} the full address
- */
-function withPeerId(addr, peerId) {
-  return addr.endsWith(`/p2p/${peerId}`) ? addr : `${addr}/p2p/${peerId}`;
-}
-
-/**
- * Removes the /p2p/<peer ID> suffix of an address, so that the listen
- * addresses of the started event have the form of the Go peer.
+ * Removes the /p2p/<peer ID> suffix of an address, so that the addresses have
+ * the form of the Go peer. js-libp2p writes the peer ID in the listen
+ * addresses and in the remote address of a connection that this peer dialed.
  *
  * @param {string} addr - the address
  * @returns {string} the address without the suffix

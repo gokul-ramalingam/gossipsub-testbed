@@ -14,7 +14,11 @@ const node = {
   },
   connectedPeers() {
     return [
-      { name: 'go-0', addrs: ['/ip4/127.0.0.1/tcp/4001/p2p/12D3KooWHZAu1VmTeA2Zh2CFgBUUoFaYKYp9yppWygjjSPEaA3Mu'] },
+      {
+        name: 'go-0',
+        peer_id: '12D3KooWHZAu1VmTeA2Zh2CFgBUUoFaYKYp9yppWygjjSPEaA3Mu',
+        addrs: ['/ip4/127.0.0.1/tcp/4001'],
+      },
     ];
   },
 };

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -290,5 +291,87 @@ func publishTestMessage(ctx context.Context, t *testing.T, publisher *Server, ru
 
 	if err := publisher.Publish(ctx, data); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// metricWithLabel returns the sum of a counter over its series with the label name=value.
+func metricWithLabel(t *testing.T, name, labelName, labelValue string) float64 {
+	t.Helper()
+
+	families, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sum := 0.0
+
+	for _, family := range families {
+		if family.GetName() != name {
+			continue
+		}
+
+		for _, metric := range family.GetMetric() {
+			for _, label := range metric.GetLabel() {
+				if label.GetName() == labelName && label.GetValue() == labelValue {
+					sum += metric.GetCounter().GetValue()
+				}
+			}
+		}
+	}
+
+	return sum
+}
+
+// TestMeshParams checks that go-libp2p-pubsub accepts the mesh parameters of
+// the testbed: NewGossipSub validates them and fails on an invalid set.
+func TestMeshParams(t *testing.T) {
+	priv, err := PrivateKey(testKeySeed, "go-0")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h, err := NewHost(priv, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = h.Close() })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	if _, err := pubsub.NewGossipSub(ctx, h, pubsub.WithGossipSubParams(gossipSubParams())); err != nil {
+		t.Fatalf("the mesh parameters are rejected: %v", err)
+	}
+
+	params := gossipSubParams()
+	if params.D != 3 || params.Dlo != 3 || params.Dhi != 4 || params.Dlazy != 3 || params.Dout != 0 {
+		t.Fatalf("mesh parameters %d/%d/%d/%d/%d, want D=3 Dlo=3 Dhi=4 Dlazy=3 Dout=0", params.D, params.Dlo, params.Dhi, params.Dlazy, params.Dout)
+	}
+}
+
+// TestMeshDoutRule checks the rule of go-libp2p-pubsub that makes Dout 0 for
+// D = 3: with Dout = 1, NewGossipSub fails.
+func TestMeshDoutRule(t *testing.T) {
+	priv, err := PrivateKey(testKeySeed, "go-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h, err := NewHost(priv, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() { _ = h.Close() })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	params := gossipSubParams()
+	params.Dout = 1
+
+	if _, err := pubsub.NewGossipSub(ctx, h, pubsub.WithGossipSubParams(params)); err == nil {
+		t.Fatal("Dout = 1 with D = 3 was accepted, want an error")
 	}
 }

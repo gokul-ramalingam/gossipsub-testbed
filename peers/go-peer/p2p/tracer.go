@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
@@ -82,9 +83,21 @@ func (t *tracer) DuplicateMessage(msg *pubsub.Message) {
 }
 
 // RejectMessage counts and logs a message that failed validation, with the GossipSub reason.
+//
+// A message of this peer that comes back is counted, but logged at debug
+// level: it is not a fault. A JS peer forwards a message to its mesh peers
+// except the one it came from, without a check of the publisher (go-libp2p-pubsub
+// checks both), so in a mixed network a Go publisher can get its own message
+// back, and GossipSub rejects it as "self originated message".
 func (t *tracer) RejectMessage(msg *pubsub.Message, reason string) {
 	metrics.CaptureRejected(reason)
-	t.logger.Warn(common.EventRejected, "reason", reason, "source", t.names.name(msg.ReceivedFrom))
+
+	level := slog.LevelWarn
+	if reason == pubsub.RejectSelfOrigin {
+		level = slog.LevelDebug
+	}
+
+	t.logger.Log(context.Background(), level, common.EventRejected, "reason", reason, "source", t.names.name(msg.ReceivedFrom))
 }
 
 // UndeliverableMessage counts and logs a message that GossipSub could not deliver to the subscription.

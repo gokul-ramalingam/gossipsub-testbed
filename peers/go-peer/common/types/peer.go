@@ -12,5 +12,5 @@ type Target struct {
 type ConnectedPeer struct {
 	Name   string   `json:"name"`    // peer name, or the short peer ID if the peer is unknown
 	PeerID string   `json:"peer_id"` // libp2p peer ID
-	Addrs  []string `json:"addrs"`   // remote address of each connection; a pair can have two
+	Addrs  []string `json:"addrs"`   // remote address of each connection, without /p2p/<peer ID>; a pair can have two
 }
