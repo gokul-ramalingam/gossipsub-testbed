@@ -1175,7 +1175,8 @@
           "options": {
             "columnField": "publisher",
             "rowField": "pod",
-            "valueField": "Value"
+            "valueField": "Value",
+            "emptyValue": "null"
           }
         }
       ],
@@ -1200,6 +1201,18 @@
               }
             ]
           },
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "–",
+                  "color": "transparent"
+                }
+              }
+            }
+          ],
           "custom": {
             "align": "center",
             "cellOptions": {
@@ -3992,7 +4005,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "event:isolation_check | fields _time, peer, to, result",
+          "expr": "event:isolation_check | sort by (_time) | copy _time as at | fields at, peer, to, result",
           "queryType": "range",
           "legendFormat": "",
           "refId": "A"
@@ -4017,21 +4030,24 @@
               "labels": true,
               "streams": true,
               "streamId": true,
-              "tsNs": true
+              "tsNs": true,
+              "Time": true
             },
             "includeByName": {
-              "Time": true,
+              "at": true,
               "peer": true,
               "to": true,
               "result": true
             },
             "indexByName": {
-              "Time": 0,
+              "at": 0,
               "peer": 1,
               "to": 2,
               "result": 3
             },
-            "renameByName": {}
+            "renameByName": {
+              "at": "time (UTC)"
+            }
           }
         }
       ],
@@ -4233,7 +4249,7 @@
             "type": "victoriametrics-logs-datasource",
             "uid": "victorialogs"
           },
-          "expr": "run_id:\"$run_id\" event:received seq:$seq | math latency_us / 1000 as latency_ms | sort by (publisher, _time) | fields _time, publisher, peer, latency_ms, source",
+          "expr": "run_id:\"$run_id\" event:received seq:$seq | math latency_us / 1000 as latency_ms | sort by (publisher, _time) | copy _time as at | fields at, publisher, peer, latency_ms, source",
           "queryType": "range",
           "legendFormat": "",
           "refId": "A"
@@ -4258,24 +4274,25 @@
               "labels": true,
               "streams": true,
               "streamId": true,
-              "tsNs": true
+              "tsNs": true,
+              "Time": true
             },
             "includeByName": {
-              "Time": true,
+              "at": true,
               "publisher": true,
               "peer": true,
               "latency_ms": true,
               "source": true
             },
             "indexByName": {
-              "Time": 0,
+              "at": 0,
               "publisher": 1,
               "peer": 2,
               "latency_ms": 3,
               "source": 4
             },
             "renameByName": {
-              "Time": "received at",
+              "at": "received at (UTC)",
               "peer": "receiver",
               "latency_ms": "latency"
             }
@@ -4309,7 +4326,7 @@
       },
       "id": 42,
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 24,
         "x": 0,
         "y": 93
