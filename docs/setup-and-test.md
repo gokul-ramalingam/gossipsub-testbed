@@ -30,6 +30,7 @@ Open the user interfaces in separate terminals. Each command runs until Ctrl-C.
 ```
 make grafana      # http://localhost:3000/d/gossipsub-testbed  (admin / admin)
 make prometheus   # http://localhost:9090
+make alertmanager # http://localhost:9093
 make logs-ui      # http://localhost:9428/select/vmui/
 ```
 
@@ -115,7 +116,8 @@ While the isolation is active (from 2:00 to 4:00 of the run), check:
 | Policy | `kubectl -n dst get networkpolicy` | `isolate` |
 | Connectivity | `make status`, or dashboard row 5 | go-2 and js-2: 1 connected peer; the others: 3 |
 | Delivery | dashboard row 3 | go-2 and js-2 drop to 0%; the others stay at 100% |
-| Alert | http://localhost:9090/alerts, or the alert tile on the dashboard | `DeliveryCompletenessLow` firing for go-2 and js-2, about 45 s after the start of the isolation |
+| Alert | http://localhost:9090/alerts, http://localhost:9093, or the alert tile on the dashboard | `DeliveryCompletenessLow` firing for go-2 and js-2, about 45 s after the start of the isolation |
+| Alert notification | `kubectl -n monitoring logs deploy/alert-receiver` | one `alert_notification` line with status `firing` for go-2 and for js-2 |
 | Telemetry continues | dashboard row 7; VictoriaLogs query `peer:"go-2"` | `up` = 1; log lines from go-2 and js-2 continue |
 
 After the run:
@@ -130,7 +132,7 @@ Expected:
 - The other peers: 100% completeness.
 - Detection lag: JS peers about 10 s, Go peers about 40 s.
 - Recovery lag: about 1 s for all connections.
-- Alert: firing during the isolation, resolved within about 25 s after the end.
+- Alert: firing during the isolation, resolved within about 25 s after the end. The notification table shows a `firing` and a `resolved` notification for go-2 and js-2.
 
 The isolation band on the dashboard (red) marks the isolation window.
 
@@ -167,7 +169,7 @@ Expected: all Go packages `ok`, and 40 of 40 JS tests pass.
 | Isolation start and end recorded | `runs/<run_id>/timeline.jsonl` |
 | Isolation verified beyond the policy | `isolation_check` results, 0 messages received while cut off |
 | Recovery and late arrivals | `analysis.md` of the isolation run; [report.md](report.md) |
-| Alert rule that fires and resolves | `templates/prometheusrule.yaml`, `make test-alert`, [report.md](report.md), "Alert" |
+| Alert rule that fires and resolves | `templates/prometheusrule.yaml`, `make test-alert`, `k8s/alert-receiver/`, [report.md](report.md), "Alert" |
 | Commands to deploy, run, collect, clean up | `Makefile` (`make help`) |
 | Report and AI-use statement | [report.md](report.md), [ai-use.md](ai-use.md) |
 

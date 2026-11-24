@@ -1,4 +1,4 @@
-# Files that helm package leaves out of the chart.
+# Files left out of the chart package.
 .DS_Store
 .idea/
 *.swp

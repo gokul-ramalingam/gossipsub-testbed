@@ -1,35 +1,31 @@
 {{/*
-Name of the headless Service. Fixed: the peers look it up by name
-(SRV_NAME), and the pod DNS names are <pod>.peers.<namespace>.svc.
+Name of the headless Service. Fixed, because the SRV name includes it.
 */}}
-{{- define "testbed.serviceName" -}}
+{{- define "gossipsub-testbed.serviceName" -}}
 peers
 {{- end }}
 
 {{/*
-SRV name that the peers look up: _p2p._tcp.<this name>. A full name, so that
-the resolver does not try the search domains first.
+Full DNS name of the Service, for the SRV lookup _p2p._tcp.<name>.
 */}}
-{{- define "testbed.srvName" -}}
-{{ include "testbed.serviceName" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+{{- define "gossipsub-testbed.srvName" -}}
+{{ include "gossipsub-testbed.serviceName" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
 {{- end }}
 
 {{/*
-Labels that select the pods of this release. The Service selects all peers
-with them; each StatefulSet adds its implementation.
+Labels that select all peers of the release.
 */}}
-{{- define "testbed.selectorLabels" -}}
+{{- define "gossipsub-testbed.selectorLabels" -}}
 app.kubernetes.io/name: gossipsub-peer
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Labels of every object: the selector labels and the recommended Kubernetes
-and Helm labels.
+Labels of every object.
 */}}
-{{- define "testbed.labels" -}}
-{{ include "testbed.selectorLabels" . }}
+{{- define "gossipsub-testbed.labels" -}}
+{{ include "gossipsub-testbed.selectorLabels" . }}
 app.kubernetes.io/part-of: gossipsub-testbed
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 {{- end }}

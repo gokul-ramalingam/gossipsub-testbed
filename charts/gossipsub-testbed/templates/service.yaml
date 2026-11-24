@@ -1,22 +1,17 @@
-# Headless Service of all peers (Go and JS). Headless (clusterIP: None): no
-# virtual IP and no load balancing; DNS answers with the pods themselves.
-# Kubernetes creates an SRV record per named port, so the port name p2p gives
-# _p2p._tcp.peers.<namespace>.svc.<clusterDomain>, with one answer per pod
-# (go-0.peers…, js-0.peers…): the SRV discovery of the peers.
+# Headless Service of all peers. The port name p2p gives the SRV record
+# _p2p._tcp.peers.<namespace>.svc.<clusterDomain>, with one answer per pod.
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "testbed.serviceName" . }}
+  name: {{ include "gossipsub-testbed.serviceName" . }}
   labels:
-    {{- include "testbed.labels" . | nindent 4 }}
+    {{- include "gossipsub-testbed.labels" . | nindent 4 }}
 spec:
   clusterIP: None
-  # List the pods in DNS before they are ready, so that the peers find each
-  # other while they start. The readiness of a peer does not depend on its
-  # connections, so it would only delay the discovery.
+  # Put the pods in DNS before they are ready, so that the peers find each other at start.
   publishNotReadyAddresses: true
   selector:
-    {{- include "testbed.selectorLabels" . | nindent 4 }}
+    {{- include "gossipsub-testbed.selectorLabels" . | nindent 4 }}
   ports:
     - name: p2p
       port: {{ .Values.ports.p2p }}

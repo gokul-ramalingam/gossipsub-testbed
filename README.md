@@ -74,6 +74,7 @@ run_id:"<run_id>" event:received publisher:"go-1" seq:42 | sort by (_time) | fie
 run_id:"<run_id>" event:received | stats by (peer) count() as received
 peer:"go-2" event:peer_* | fields _time, event, remote
 event:isolation_check | fields _time, peer, to, result
+event:alert_notification | fields _time, status, subscriber, publisher, run_id
 ```
 
 The first query is the receipt timeline of message 42.
@@ -83,7 +84,7 @@ The first query is the receipt timeline of message 42.
 - The subscriber received less than 95% of the messages of a publisher in the last 30 s.
 - At least 60 messages are missing in the last 30 s.
 
-Prometheus scrapes the peers at different times, so the ratio alone is wrong for some seconds at the start and end of a run. The minimum count prevents these false alerts. 60 is 6 s of messages at 10 msg/s; change `monitoring.alert.minMissing` for a different rate. Alertmanager is off, so the alert state shows in Prometheus and on the dashboard. `make test-alert` tests the rule with promtool.
+Prometheus scrapes the peers at different times, so the ratio alone is wrong for some seconds at the start and end of a run. The minimum count prevents these false alerts. 60 is 6 s of messages at 10 msg/s; change `monitoring.alert.minMissing` for a different rate. Alertmanager sends the alert, firing and resolved, to an in-cluster webhook receiver (`k8s/alert-receiver/`). The receiver writes each notification as an `alert_notification` log line, so the notifications are in VictoriaLogs and in `analysis.md`. `make alertmanager` opens Alertmanager on http://localhost:9093. `make test-alert` tests the rule with promtool.
 
 ## The peers
 
@@ -135,7 +136,7 @@ Log events are JSON lines with `ts`, `event`, `peer`, `impl` and `peer_id`:
 | `kind/cluster.yaml` | kind cluster |
 | `charts/gossipsub-testbed` | Helm chart: peers, PodMonitor, alert rule, dashboard |
 | `monitoring/` | Helm values of kube-prometheus-stack 93.1.2 and VictoriaLogs; alert test |
-| `k8s/isolate.yaml` | Isolation policy |
+| `k8s/` | Isolation policy, alert receiver |
 | `scripts/` | `run.sh`, `isolate.sh`, `analyze.py`, `status.sh`, `test-alert.sh` |
 | `docs/` | Report, interop notes, AI-use statement, results, screenshots, architecture diagram |
 

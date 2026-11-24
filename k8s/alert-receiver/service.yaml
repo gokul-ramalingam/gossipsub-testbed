@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-receiver
+  labels:
+    app.kubernetes.io/name: alert-receiver
+    app.kubernetes.io/component: alert-receiver
+    app.kubernetes.io/part-of: gossipsub-testbed
+spec:
+  selector:
+    app.kubernetes.io/name: alert-receiver
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

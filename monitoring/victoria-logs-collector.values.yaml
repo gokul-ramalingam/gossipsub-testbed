@@ -1,24 +1,14 @@
-# Values of victoria-logs-collector 0.3.8 (vlagent v1.53.0) for the testbed
-# (release "vlc", namespace "logging"). A DaemonSet: one collector per node
-# reads the container log files of the node and sends the lines to VictoriaLogs.
-# Only what differs from the defaults.
-#
-# The defaults of collector.* fit the peers' JSON lines: the time comes from
-# the field ts (with microseconds), and every other field (event, peer, run_id,
-# seq, …) becomes a field in VictoriaLogs. The peers write no message field
-# (msg); event stays a field, so that the queries read event:received.
+# victoria-logs-collector 0.3.8 (release vlc, namespace logging). Only the changes to the defaults.
+# One collector per node sends the container logs to VictoriaLogs. Each JSON
+# field of a peer line becomes a field, and the time comes from ts.
 
 remoteWrite:
-  # The VictoriaLogs server of victoria-logs-single.values.yaml.
   - url: http://vls-victoria-logs-single-server.logging.svc:9428
 
 collector:
-  # The pod labels repeat on every line (10 fields per line); the peers' own
-  # fields peer and impl already say which peer wrote it.
+  # The fields peer and impl already name the peer, so the pod labels are not needed.
   includePodLabels: false
 
 extraArgs:
-  # _msg of a line without a message field (the peers' lines): a short dash
-  # instead of the default text with a link. The collector sets _msg before
-  # the server sees the line, so the flag is set here.
+  # _msg of a line without a message field: a dash, not the default long text.
   defaultMsgValue: "-"

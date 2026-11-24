@@ -1,0 +1,18 @@
+# Webhook receiver of Alertmanager. Apply: kubectl apply -k k8s/alert-receiver
+# The ConfigMap name gets a hash of receiver.py, so a change to the script
+# rolls out a new pod.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - deployment.yaml
+  - service.yaml
+configMapGenerator:
+  - name: alert-receiver
+    files:
+      - receiver.py
+    options:
+      labels:
+        app.kubernetes.io/name: alert-receiver
+        app.kubernetes.io/component: alert-receiver
+        app.kubernetes.io/part-of: gossipsub-testbed

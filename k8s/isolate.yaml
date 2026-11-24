@@ -1,12 +1,7 @@
-# Isolation of go-2 and js-2 for Scenario B (README.md, "How the isolation works").
-# Applied and deleted by scripts/isolate.sh, which also cuts the open
-# connections (a policy only blocks new ones).
-#
-# go-2 and js-2 can still reach each other, Prometheus can still scrape them,
-# and they can still resolve names. Everything else to or from them is dropped,
-# so they lose the other four peers. The kubelet probes are not affected
-# (traffic from the node is not checked), and the logs still reach
-# VictoriaLogs (the collector reads the files on the node).
+# Isolates go-2 and js-2 from the other peers (Scenario B). scripts/isolate.sh
+# applies it and also cuts the open connections: a policy blocks only new ones.
+# Allowed: go-2 <-> js-2, Prometheus scrapes, and DNS. Probes and logs are not
+# affected, because they do not go through the pod network.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -15,7 +10,7 @@ metadata:
   labels:
     app.kubernetes.io/part-of: gossipsub-testbed
 spec:
-  # The two isolated peers, by the pod name that the StatefulSet sets as a label.
+  # The isolated peers, by the pod name label of the StatefulSet.
   podSelector:
     matchExpressions:
       - key: statefulset.kubernetes.io/pod-name
@@ -23,14 +18,14 @@ spec:
         values: [go-2, js-2]
   policyTypes: [Ingress, Egress]
   ingress:
-    # From each other (all ports).
+    # From each other.
     - from:
         - podSelector:
             matchExpressions:
               - key: statefulset.kubernetes.io/pod-name
                 operator: In
                 values: [go-2, js-2]
-    # From Prometheus, to the HTTP port (/metrics).
+    # From Prometheus, to /metrics.
     - from:
         - namespaceSelector:
             matchLabels:
@@ -39,14 +34,14 @@ spec:
         - protocol: TCP
           port: 8080
   egress:
-    # To each other (all ports).
+    # To each other.
     - to:
         - podSelector:
             matchExpressions:
               - key: statefulset.kubernetes.io/pod-name
                 operator: In
                 values: [go-2, js-2]
-    # DNS (CoreDNS in kube-system): the peers keep looking up the SRV record.
+    # To CoreDNS, for the SRV lookup.
     - to:
         - namespaceSelector:
             matchLabels:

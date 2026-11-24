@@ -7,7 +7,7 @@ Connections of a peer (each peer should list all the others):
   kubectl exec -n {{ .Release.Namespace }} go-0 -- wget -qO- localhost:{{ .Values.ports.http }}/connections
 
 SRV records that the peers look up:
-  kubectl exec -n {{ .Release.Namespace }} go-0 -- nslookup -type=SRV _p2p._tcp.{{ include "testbed.srvName" . }}
+  kubectl exec -n {{ .Release.Namespace }} go-0 -- nslookup -type=SRV _p2p._tcp.{{ include "gossipsub-testbed.srvName" . }}
 
 Logs of a peer (one JSON line per event):
   kubectl logs -n {{ .Release.Namespace }} go-0

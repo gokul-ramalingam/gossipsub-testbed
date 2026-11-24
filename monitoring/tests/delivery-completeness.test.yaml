@@ -1,13 +1,8 @@
-# promtool unit test of the alert DeliveryCompletenessLow
-# (charts/gossipsub-testbed/templates/prometheusrule.yaml), with a synthetic isolation.
+# promtool test of the alert DeliveryCompletenessLow with a simulated isolation.
+# Run it with make test-alert.
 #
-# promtool reads the rules in the Prometheus format (the spec of the PrometheusRule):
-#
-#   kubectl -n dst get prometheusrule gossipsub -o json | jq .spec > rules.json
-#   promtool test rules delivery-completeness.test.yaml   # rules.json next to it
-#
-# Workload: go-1 publishes 10 msg/s for 6 min (a sample every 5 s, +50 each).
-# go-0 receives all; go-2 receives nothing from 2:00 to 4:00 (isolation).
+# go-1 publishes 10 msg/s for 6 min. go-0 receives all; go-2 receives
+# nothing from 2:00 to 4:00.
 
 rule_files:
   - rules.json
@@ -21,7 +16,7 @@ tests:
         values: '0+50x72'
       - series: 'gs_messages_received_total{namespace="dst", run_id="t", pod="go-0", publisher="go-1"}'
         values: '0+50x72'
-      # 0:00–2:00 receives (1200 at 2:00), 2:00–4:00 nothing, then receives again.
+      # Receives until 2:00, nothing until 4:00, then receives again.
       - series: 'gs_messages_received_total{namespace="dst", run_id="t", pod="go-2", publisher="go-1"}'
         values: '0+50x24 1200x24 1200+50x23'
 
@@ -30,11 +25,11 @@ tests:
       - eval_time: 1m50s
         alertname: DeliveryCompletenessLow
         exp_alerts: []
-      # 20 s into the isolation: true, but not yet for 30 s (pending, not firing).
+      # 20 s into the isolation: pending, not firing.
       - eval_time: 2m20s
         alertname: DeliveryCompletenessLow
         exp_alerts: []
-      # 50 s into the isolation: firing for go-2 only (go-0 receives everything).
+      # 50 s into the isolation: firing for go-2 only.
       - eval_time: 2m50s
         alertname: DeliveryCompletenessLow
         exp_alerts:
@@ -58,7 +53,7 @@ tests:
             exp_annotations:
               summary: "go-2 misses messages of go-1 (run t)"
               description: "go-2 received less than 95 % of the messages that go-1 published in the last 30 s, for 30 s, with at least 60 missing."
-      # 40 s after the recovery: resolved (about one window after the recovery).
+      # 40 s after the recovery: resolved.
       - eval_time: 4m40s
         alertname: DeliveryCompletenessLow
         exp_alerts: []

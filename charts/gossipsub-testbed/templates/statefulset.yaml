@@ -1,7 +1,5 @@
 {{- /*
-One StatefulSet per implementation (go, js). A StatefulSet gives each pod a
-stable name (go-0, go-1, …) and a DNS name under the headless Service; the
-pod name is the peer name, and the peer key is derived from it.
+One StatefulSet per implementation. The stable pod name (go-0, js-1) is the peer name.
 */ -}}
 {{- range $impl, $cfg := .Values.implementations }}
 ---
@@ -10,26 +8,24 @@ kind: StatefulSet
 metadata:
   name: {{ $impl }}
   labels:
-    {{- include "testbed.labels" $ | nindent 4 }}
+    {{- include "gossipsub-testbed.labels" $ | nindent 4 }}
     app.kubernetes.io/component: {{ $impl }}
-    app.kubernetes.io/version: {{ $cfg.image.tag | quote }}
+    app.kubernetes.io/version: {{ $cfg.image.tag | default $.Chart.AppVersion | quote }}
 spec:
   replicas: {{ $cfg.replicas }}
-  # Pod DNS names: <pod>.<serviceName>.<namespace>.svc.<clusterDomain>.
-  serviceName: {{ include "testbed.serviceName" $ }}
-  # Start and stop all pods at once instead of one after the other; the peers
-  # do not depend on each other to start.
+  serviceName: {{ include "gossipsub-testbed.serviceName" $ }}
+  # Start all pods at once. The peers do not depend on each other.
   podManagementPolicy: Parallel
   selector:
     matchLabels:
-      {{- include "testbed.selectorLabels" $ | nindent 6 }}
+      {{- include "gossipsub-testbed.selectorLabels" $ | nindent 6 }}
       app.kubernetes.io/component: {{ $impl }}
   template:
     metadata:
       labels:
-        {{- include "testbed.labels" $ | nindent 8 }}
+        {{- include "gossipsub-testbed.labels" $ | nindent 8 }}
         app.kubernetes.io/component: {{ $impl }}
-        app.kubernetes.io/version: {{ $cfg.image.tag | quote }}
+        app.kubernetes.io/version: {{ $cfg.image.tag | default $.Chart.AppVersion | quote }}
     spec:
       securityContext:
         runAsNonRoot: true
@@ -37,11 +33,8 @@ spec:
         runAsGroup: {{ $cfg.runAsGroup }}
         seccompProfile:
           type: RuntimeDefault
-      # Spread all peers (Go and JS) evenly over the nodes, so that messages
-      # cross the network between the workers. nodeTaintsPolicy Honor:
-      # count only the nodes that the pod can run on. With the default
-      # (Ignore), the control plane, whose taint keeps the peers out, counts
-      # as a node with 0 peers, and no worker can take a second peer.
+      # Spread the peers evenly over the workers. Honor skips the tainted
+      # control plane; otherwise no worker can take a second peer.
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -49,13 +42,13 @@ spec:
           whenUnsatisfiable: DoNotSchedule
           labelSelector:
             matchLabels:
-              {{- include "testbed.selectorLabels" $ | nindent 14 }}
+              {{- include "gossipsub-testbed.selectorLabels" $ | nindent 14 }}
       containers:
         - name: peer
-          image: "{{ $cfg.image.repository }}:{{ $cfg.image.tag }}"
+          image: "{{ $cfg.image.repository }}:{{ $cfg.image.tag | default $.Chart.AppVersion }}"
           imagePullPolicy: {{ $cfg.image.pullPolicy }}
           env:
-            # The pod name (go-0, js-2, …) is the peer name.
+            # The pod name is the peer name.
             - name: PEER_NAME
               valueFrom:
                 fieldRef:
@@ -63,7 +56,7 @@ spec:
             - name: DISCOVERY
               value: srv
             - name: SRV_NAME
-              value: {{ include "testbed.srvName" $ | quote }}
+              value: {{ include "gossipsub-testbed.srvName" $ | quote }}
             - name: P2P_PORT
               value: {{ $.Values.ports.p2p | quote }}
             - name: HTTP_PORT
@@ -79,8 +72,7 @@ spec:
             - name: http
               containerPort: {{ $.Values.ports.http }}
               protocol: TCP
-          # /healthz answers while the process runs. Readiness does not depend
-          # on the connections: the run script checks /connections itself.
+          # Readiness does not depend on the connections. run.sh checks them.
           readinessProbe:
             httpGet:
               path: /healthz
@@ -94,7 +86,6 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml $cfg.resources | nindent 12 }}
-          # The peers need no rights and write no files.
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

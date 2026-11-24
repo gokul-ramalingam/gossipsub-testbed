@@ -1,39 +1,32 @@
-# Values of the gossipsub testbed chart. Install:
-#
-#   helm install testbed charts/gossipsub-testbed -n dst --create-namespace
-#
-# The namespace is part of the SRV name that the peers look up
-# (_p2p._tcp.peers.<namespace>.svc.<clusterDomain>), so the templates take it
-# from the release; any namespace works.
+# Install: helm install testbed charts/gossipsub-testbed -n dst --create-namespace
 
-# DNS domain of the cluster; kind uses the Kubernetes default.
+# clusterDomain is the DNS domain of the cluster.
 clusterDomain: cluster.local
 
-# Ports of each peer: libp2p (TCP) and the HTTP API. They are the defaults of
-# the peers; the chart passes them so that the pod spec states them.
+# ports are the libp2p (TCP) and HTTP API ports of each peer.
 ports:
   p2p: 4001
   http: 8080
 
-# Settings passed to every peer as environment variables. The others
-# (KEY_SEED, TOPIC) keep the defaults of the peers, which are the same in Go
-# and JS.
+# peer holds the settings of every peer. KEY_SEED and TOPIC keep the peer defaults.
 peer:
+  # logLevel is debug, info, warn or error.
   logLevel: info
+  # redialInterval is the time between two discovery rounds.
   redialInterval: 5s
 
-# One StatefulSet per implementation. The StatefulSet name is the prefix of
-# the pod names (go-0, go-1, …), and each pod name is the name of its peer.
+# implementations has one StatefulSet per implementation. The key is the
+# prefix of the pod names (go-0, js-1), and the pod name is the peer name.
 implementations:
   go:
     replicas: 3
     image:
       repository: gossipsub-testbed/go-peer
-      tag: "0.1.0"
-      # The images are loaded into kind (kind load docker-image), not pulled.
+      # tag defaults to the chart appVersion.
+      tag: ""
+      # pullPolicy is IfNotPresent: the images are loaded into kind, not pulled.
       pullPolicy: IfNotPresent
-    # User and group of the image (USER nobody of Alpine), as numbers:
-    # runAsNonRoot can check only a numeric user.
+    # runAsUser and runAsGroup are user nobody of the image. runAsNonRoot needs a numeric user.
     runAsUser: 65534
     runAsGroup: 65534
     resources:
@@ -47,15 +40,12 @@ implementations:
     replicas: 3
     image:
       repository: gossipsub-testbed/js-peer
-      tag: "0.1.0"
+      tag: ""
       pullPolicy: IfNotPresent
-    # User and group of the image (USER node of the Node image).
+    # runAsUser and runAsGroup are user node of the image.
     runAsUser: 1000
     runAsGroup: 1000
-    # Node uses CPU in bursts (start, code compilation, message signing,
-    # garbage collection): about 60m on average at 10 msg/s, but with a limit
-    # of 500m the bursts were throttled, also during a run. 1 CPU leaves room
-    # for them; the request covers the average.
+    # resources: Node.js uses CPU in bursts. A 500m limit throttled them, so the limit is 1 CPU.
     resources:
       requests:
         cpu: 100m
@@ -64,24 +54,17 @@ implementations:
         cpu: 1000m
         memory: 256Mi
 
-# Monitoring objects of the peers, for the Prometheus Operator of
-# kube-prometheus-stack (monitoring/). Set enabled to false on a cluster
-# without the Operator: the chart then installs the peers only.
+# monitoring adds the PodMonitor, the alert rule and the dashboard. They need
+# the Prometheus Operator; set enabled to false on a cluster without it.
 monitoring:
   enabled: true
-  # How often Prometheus scrapes /metrics of each peer (the scrape interval of
-  # the plan); the rest of the cluster keeps the default of 30 s.
+  # scrapeInterval is the scrape interval of the peers. The rest of the cluster keeps 30 s.
   scrapeInterval: 5s
-  # Alert DeliveryCompletenessLow (templates/prometheusrule.yaml): fires for a
-  # subscriber that received less than `completeness` of a publisher's messages
-  # over 30 s, for 30 s, and at least `minMissing` messages are missing in the
-  # 30 s. The counters of the peers are scraped at different moments (up to 5 s
-  # apart, more when a scrape is late), so at the start and the end of a run,
-  # and after an uneven scrape, the ratio and the count are wrong for a few
-  # seconds (measured: over 30 missing without any loss, never for 30 s). An
-  # isolation misses about 300 per 30 s. 60 = 6 s of publishing at 10 msg/s,
-  # above a scrape interval plus a late scrape: scale it with the publish rate.
-  # See README.md, "Alert" and docs/report.md.
+  # alert sets DeliveryCompletenessLow. It fires when, over 30 s, a subscriber
+  # gets less than completeness of a publisher's messages and misses at least
+  # minMissing.
   alert:
     completeness: 0.95
+    # minMissing stops false alerts from uneven scrapes (up to 30 missing were
+    # seen with no loss). 60 is 6 s at 10 msg/s; scale it with the rate.
     minMissing: 60
