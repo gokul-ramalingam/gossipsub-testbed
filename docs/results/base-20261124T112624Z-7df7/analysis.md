@@ -1,6 +1,6 @@
-# Analysis of base-20261123T224539Z-320a
+# Analysis of base-20261124T112624Z-7df7
 
-Scenario `base`, 10 msg/s per publisher (go-1), 1024 B, 300 s; run 2026-11-23T22:46:13.278521Z -> 2026-11-23T22:51:13.773575Z.
+Scenario `base`, 10 msg/s per publisher (go-1), 1024 B, 300 s; run 2026-11-24T11:26:58.734933Z -> 2026-11-24T11:32:00.146017Z.
 
 ## Completeness
 
@@ -20,9 +20,9 @@ Receive time - the publisher's timestamp, first copy only (nearest-rank percenti
 
 | receivers | deliveries | p50 | p95 | p99 | max |
 | --- | --- | --- | --- | --- | --- |
-| all | 15000 | 1.7 ms | 3.6 ms | 5.9 ms | 41.9 ms |
-| go | 6000 | 1.6 ms | 3.8 ms | 5.4 ms | 24.7 ms |
-| js | 9000 | 1.7 ms | 3.5 ms | 6.2 ms | 41.9 ms |
+| all | 15000 | 1.5 ms | 3.5 ms | 9.2 ms | 1120.0 ms |
+| go | 6000 | 0.9 ms | 2.1 ms | 6.9 ms | 1120.0 ms |
+| js | 9000 | 1.9 ms | 4.0 ms | 10.2 ms | 826.0 ms |
 
 ## Duplicates and direct deliveries
 
@@ -30,18 +30,21 @@ Duplicates: later copies of a message the peer already had. Direct: first copy f
 
 | peer | first copies | duplicates | direct |
 | --- | --- | --- | --- |
-| go-0 | 3000 | 5995 | 0.0 % |
+| go-0 | 3000 | 3141 | 0.0 % |
 | go-1 | 0 | 0 | - |
-| go-2 | 3000 | 3025 | 99.4 % |
-| js-0 | 3000 | 4113 | 0.0 % |
-| js-1 | 3000 | 6092 | 99.9 % |
-| js-2 | 3000 | 6145 | 99.3 % |
+| go-2 | 3000 | 3028 | 99.0 % |
+| js-0 | 3000 | 5983 | 0.0 % |
+| js-1 | 3000 | 8791 | 99.5 % |
+| js-2 | 3000 | 8774 | 99.7 % |
 
 ## Publisher stalls
 
 Gaps between two messages of a publisher longer than 3 send intervals (300 ms). The publishers catch up after a stall (schedule by sequence number), so a stall shows as a gap and then a burst; a stall of the machine also delays the deliveries.
 
-None.
+| publisher | last message before the gap | gap |
+| --- | --- | --- |
+| go-1 | 11:29:20.186115 | 403.3 ms |
+| go-1 | 11:29:21.110752 | 345.7 ms |
 
 ## Missing sequence numbers
 

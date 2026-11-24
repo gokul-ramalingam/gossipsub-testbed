@@ -1,0 +1,19 @@
+{"ts":"2026-11-24T11:32:21.584260Z","event":"connected","peers":"go-0 go-1 go-2 js-0 js-1 js-2"}
+{"ts":"2026-11-24T11:32:21.754552Z","event":"warmup_started","run_id":"warmup-20261124T113220Z-6b77","duration_s":20}
+{"ts":"2026-11-24T11:32:54.047083Z","event":"stable","mesh":"go-0=3 go-1=3 go-2=3 js-0=3 js-1=4 js-2=4"}
+{"ts":"2026-11-24T11:32:54.958644Z","event":"run_started","run_id":"iso-20261124T113220Z-6b77","scenario":"iso","rate":10,"size":1024,"duration_s":420,"publishers":"go-1"}
+{"ts":"2026-11-24T11:34:55.578383Z","event":"isolation_enabled","policy":"isolate","peers":"go-2 js-2","done_at":"2026-11-24T11:34:55.747790Z"}
+{"ts":"2026-11-24T11:34:55.816468Z","event":"connections_cut","ips":"10.244.1.13 10.244.2.17","conntrack_entries_deleted":118,"done_at":"2026-11-24T11:34:57.291094Z"}
+{"ts":"2026-11-24T11:34:59.542511Z","event":"isolation_check","peer":"go-2","to":"go-0","result":"fail"}
+{"ts":"2026-11-24T11:34:59.908542Z","event":"isolation_check","peer":"go-2","to":"js-2","result":"ok"}
+{"ts":"2026-11-24T11:35:02.356504Z","event":"isolation_check","peer":"go-0","to":"go-2","result":"fail"}
+{"ts":"2026-11-24T11:36:54.726210Z","event":"isolation_disabled","policy":"isolate","peers":"go-2 js-2","done_at":"2026-11-24T11:36:54.945312Z"}
+{"ts":"2026-11-24T11:36:55.504399Z","event":"isolation_check","peer":"go-2","to":"go-0","result":"ok"}
+{"ts":"2026-11-24T11:36:56.212340Z","event":"isolation_check","peer":"go-2","to":"js-2","result":"ok"}
+{"ts":"2026-11-24T11:36:56.639949Z","event":"isolation_check","peer":"go-0","to":"go-2","result":"ok"}
+{"ts":"2026-11-24T11:39:56.873067Z","event":"run_stopped","run_id":"iso-20261124T113220Z-6b77"}
+{"ts":"2026-11-24T11:39:57.160325Z","event":"isolation_check","peer":"go-2","to":"go-0","result":"ok"}
+{"ts":"2026-11-24T11:39:57.506404Z","event":"isolation_check","peer":"go-2","to":"js-2","result":"ok"}
+{"ts":"2026-11-24T11:39:57.838383Z","event":"isolation_check","peer":"go-0","to":"go-2","result":"ok"}
+{"ts":"2026-11-24T11:39:58.023755Z","event":"mesh_after","mesh":"go-0=3 go-1=3 go-2=3 js-0=4 js-1=4 js-2=3"}
+{"ts":"2026-11-24T11:40:17.872730Z","event":"exported","logs_lines":58300,"metrics_files":15}
