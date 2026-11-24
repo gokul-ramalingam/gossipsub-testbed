@@ -1,0 +1,7 @@
+{"ts":"2026-11-23T22:45:40.245294Z","event":"connected","peers":"go-0 go-1 go-2 js-0 js-1 js-2"}
+{"ts":"2026-11-23T22:45:40.405989Z","event":"warmup_started","run_id":"warmup-20261123T224539Z-320a","duration_s":20}
+{"ts":"2026-11-23T22:46:12.508371Z","event":"stable","mesh":"go-0=3 go-1=3 go-2=3 js-0=3 js-1=4 js-2=4"}
+{"ts":"2026-11-23T22:46:13.278521Z","event":"run_started","run_id":"base-20261123T224539Z-320a","scenario":"base","rate":10,"size":1024,"duration_s":300,"publishers":"go-1"}
+{"ts":"2026-11-23T22:51:13.773575Z","event":"run_stopped","run_id":"base-20261123T224539Z-320a"}
+{"ts":"2026-11-23T22:51:13.835064Z","event":"mesh_after","mesh":"go-0=3 go-1=3 go-2=3 js-0=3 js-1=4 js-2=4"}
+{"ts":"2026-11-23T22:51:34.234788Z","event":"exported","logs_lines":43372,"metrics_files":15}

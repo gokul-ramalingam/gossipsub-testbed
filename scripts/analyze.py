@@ -48,15 +48,15 @@ def fmt_time(seconds):
 
 
 def percentile(sorted_values, p):
-    """Returns the nearest-rank percentile p (0–100) of an ascending list."""
+    """Returns the nearest-rank percentile p (0-100) of an ascending list."""
     if not sorted_values:
         return None
-    rank = max(1, -(-len(sorted_values) * p // 100))  # ceil(n × p / 100)
+    rank = max(1, -(-len(sorted_values) * p // 100))  # ceil(n x p / 100)
     return sorted_values[int(rank) - 1]
 
 
 def ranges(numbers):
-    """Compresses ascending integers into 'a–b' ranges."""
+    """Compresses ascending integers into 'a-b' ranges."""
     out, start, prev = [], None, None
     for n in numbers:
         if start is None:
@@ -64,10 +64,10 @@ def ranges(numbers):
         elif n == prev + 1:
             prev = n
         else:
-            out.append(f"{start}–{prev}" if start != prev else f"{start}")
+            out.append(f"{start}-{prev}" if start != prev else f"{start}")
             start = prev = n
     if start is not None:
-        out.append(f"{start}–{prev}" if start != prev else f"{start}")
+        out.append(f"{start}-{prev}" if start != prev else f"{start}")
     return out
 
 
@@ -79,13 +79,13 @@ def table(header, rows):
 
 
 def ms(seconds):
-    """Formats seconds as milliseconds with 1 decimal, or – for None."""
-    return "–" if seconds is None else f"{seconds * 1000:.1f} ms"
+    """Formats seconds as milliseconds with 1 decimal, or - for None."""
+    return "-" if seconds is None else f"{seconds * 1000:.1f} ms"
 
 
 def secs(seconds):
-    """Formats seconds with 3 decimals, or – for None."""
-    return "–" if seconds is None else f"{seconds:.3f} s"
+    """Formats seconds with 3 decimals, or - for None."""
+    return "-" if seconds is None else f"{seconds:.3f} s"
 
 
 def load(run_dir):
@@ -123,7 +123,7 @@ def analyse(run_dir):
     out = [f"# Analysis of {run_id}", ""]
     out.append(f"Scenario `{settings['scenario']}`, {settings['rate_per_publisher']} msg/s per publisher "
                f"({', '.join(publishers)}), {settings['size_bytes']} B, {settings['duration_s']} s; "
-               f"run {settings['start']} → {settings['end']}.")
+               f"run {settings['start']} -> {settings['end']}.")
     if isolated:
         out.append(f"Isolated: {', '.join(isolated)} from {settings['isolate_at_s']} s for {settings['isolation_s']} s.")
     out.append("")
@@ -159,8 +159,8 @@ def analyse(run_dir):
             missing_by_pair[(sub, pub)] = missing
             prom = prom_received.get((sub, pub))
             prom_pub = prom_published.get((pub,))
-            rows.append([sub, pub, len(sent), len(got), len(missing), f"{100 * len(got) / len(sent):.2f} %" if sent else "–",
-                         "–" if prom is None or not prom_pub else f"{int(prom)}/{int(prom_pub)}"])
+            rows.append([sub, pub, len(sent), len(got), len(missing), f"{100 * len(got) / len(sent):.2f} %" if sent else "-",
+                         "-" if prom is None or not prom_pub else f"{int(prom)}/{int(prom_pub)}"])
     out += ["## Completeness", "",
             "From the logs: published = the publisher's `published` lines, received = distinct `seq` in the "
             "subscriber's `received` lines. Prometheus = the last value of the counters in the export (cross-check).", "",
@@ -182,7 +182,7 @@ def analyse(run_dir):
         if values:
             rows.append([group, len(values)] + [ms(percentile(values, p)) for p in (50, 95, 99)] + [ms(values[-1])])
     out += ["## Latency", "",
-            "Receive time − the publisher's timestamp, first copy only (nearest-rank percentiles). In an isolation run, "
+            "Receive time - the publisher's timestamp, first copy only (nearest-rank percentiles). In an isolation run, "
             "the late arrivals are in the rows all, go/js and isolated.", "",
             table(["receivers", "deliveries", "p50", "p95", "p99", "max"], rows), ""]
 
@@ -191,7 +191,7 @@ def analyse(run_dir):
     for peer in subscribers:
         firsts = [line for (s, _p, _q), line in received.items() if s == peer]
         direct = sum(1 for line in firsts if line.get("source") == line["publisher"])
-        rows.append([peer, len(firsts), duplicates[peer], f"{100 * direct / len(firsts):.1f} %" if firsts else "–"])
+        rows.append([peer, len(firsts), duplicates[peer], f"{100 * direct / len(firsts):.1f} %" if firsts else "-"])
     out += ["## Duplicates and direct deliveries", "",
             "Duplicates: later copies of a message the peer already had. Direct: first copy from the publisher itself.", "",
             table(["peer", "first copies", "duplicates", "direct"], rows), ""]
@@ -222,13 +222,18 @@ def analyse(run_dir):
     t_apply = first_event(timeline, "isolation_enabled")
     t_cut = first_event(timeline, "connections_cut")
     t_remove = first_event(timeline, "isolation_disabled")
+    # The cut runs node by node and takes about 1.5 s; its done_at is the end.
+    # Messages can still arrive over not yet cut connections until then.
+    cut_event = next((e for e in timeline if e["event"] == "connections_cut"), {})
+    t_cut_done = parse_time(cut_event["done_at"]) if "done_at" in cut_event else t_cut
     others = [p for p in peers if p not in isolated]
     out += ["## Isolation timeline", "",
             table(["event", "time (UTC)"], [
                 ["policy applied (T_apply)", fmt_time(t_apply)],
-                ["open connections cut (conntrack)", fmt_time(t_cut)],
+                ["open connections cut (conntrack), start", fmt_time(t_cut)],
+                ["open connections cut, done", fmt_time(t_cut_done)],
                 ["policy removed (T_remove)", fmt_time(t_remove)],
-                ["isolation length (T_remove − T_apply)", secs(t_remove - t_apply)],
+                ["isolation length (T_remove - T_apply)", secs(t_remove - t_apply)],
             ]), ""]
 
     checks = [e for e in timeline if e["event"] == "isolation_check"]
@@ -260,46 +265,46 @@ def analyse(run_dir):
                 continue
             d, c = disconnects.get((peer, remote)), connects.get((peer, remote))
             rows.append([peer, remote,
-                         fmt_time(d) if d else "none", secs(d - t_apply) if d else "–", secs(d - t_cut) if d else "–",
-                         fmt_time(c) if c else "none", ms(c - t_remove) if c else "–",
-                         secs(c - d) if c and d else "–"])
+                         fmt_time(d) if d else "none", secs(d - t_apply) if d else "-", secs(d - t_cut) if d else "-",
+                         fmt_time(c) if c else "none", ms(c - t_remove) if c else "-",
+                         secs(c - d) if c and d else "-"])
     lags_d = [disconnects[k] - t_cut for k in disconnects]
     lags_c = [connects[k] - t_remove for k in connects]
     out += ["### Connections between the groups", "",
-            "One row per side of each connection (each side has its own keepalive). Detection lag = D − T_apply "
-            "(and D − the cut: the policy alone blocks only new connections); recovery lag = C − T_remove; seen outage = C − D.", "",
-            table(["peer", "remote", "disconnected (D)", "D − T_apply", "D − cut", "reconnected (C)", "C − T_remove", "C − D"], rows), "",
-            f"Detection lag after the cut: min {secs(min(lags_d)) if lags_d else '–'}, max {secs(max(lags_d)) if lags_d else '–'} "
-            f"({len(lags_d)} of {len(rows)} sides saw a disconnect). Recovery lag: min {ms(min(lags_c)) if lags_c else '–'}, "
-            f"max {ms(max(lags_c)) if lags_c else '–'}.", ""]
+            "One row per side of each connection (each side has its own keepalive). Detection lag = D - T_apply "
+            "(and D - the cut: the policy alone blocks only new connections); recovery lag = C - T_remove; seen outage = C - D.", "",
+            table(["peer", "remote", "disconnected (D)", "D - T_apply", "D - cut", "reconnected (C)", "C - T_remove", "C - D"], rows), "",
+            f"Detection lag after the cut: min {secs(min(lags_d)) if lags_d else '-'}, max {secs(max(lags_d)) if lags_d else '-'} "
+            f"({len(lags_d)} of {len(rows)} sides saw a disconnect). Recovery lag: min {ms(min(lags_c)) if lags_c else '-'}, "
+            f"max {ms(max(lags_c)) if lags_c else '-'}.", ""]
 
     # Delivery at the isolated peers around the isolation.
     rows = []
     for peer in isolated:
         mine = sorted((parse_time(line["_time"]), pub, seq, line) for (s, pub, seq), line in received.items() if s == peer)
         last_before = max((m for m in mine if m[0] < t_cut), default=None)
-        during = [m for m in mine if t_cut + 1 <= m[0] < t_remove]
+        during = [m for m in mine if t_cut_done + 1 <= m[0] < t_remove]
         first_after = next((m for m in mine if m[0] >= t_remove), None)
         first_new = next((m for m in mine if m[0] >= t_remove and published.get((m[1], m[2]), 0) >= t_remove), None)
         late = [m for m in mine if m[0] >= t_remove and published.get((m[1], m[2]), t_remove) < t_remove
                 and m[0] - published[(m[1], m[2])] > LATE_S]
-        sent_during = sum(1 for (p, _s), t in published.items() if t_cut <= t < t_remove)
-        missed_during = sum(1 for (p, s), t in published.items() if t_cut <= t < t_remove and (peer, p, s) not in received)
+        sent_during = sum(1 for (p, _s), t in published.items() if t_cut_done <= t < t_remove)
+        missed_during = sum(1 for (p, s), t in published.items() if t_cut_done <= t < t_remove and (peer, p, s) not in received)
         rows.append([peer,
-                     f"{fmt_time(last_before[0])} ({last_before[1]} {last_before[2]})" if last_before else "–",
+                     f"{fmt_time(last_before[0])} ({last_before[1]} {last_before[2]})" if last_before else "-",
                      len(during),
-                     f"{fmt_time(first_after[0])} ({first_after[1]} {first_after[2]}), {ms(first_after[0] - t_remove)}" if first_after else "–",
-                     f"{ms(first_new[0] - t_remove)}" if first_new else "–",
+                     f"{fmt_time(first_after[0])} ({first_after[1]} {first_after[2]}), {ms(first_after[0] - t_remove)}" if first_after else "-",
+                     f"{ms(first_new[0] - t_remove)}" if first_new else "-",
                      f"{missed_during} of {sent_during}",
-                     f"{len(late)}" + (f" ({secs(min(m[0] - published[(m[1], m[2])] for m in late))}–"
+                     f"{len(late)}" + (f" ({secs(min(m[0] - published[(m[1], m[2])] for m in late))}-"
                                       f"{secs(max(m[0] - published[(m[1], m[2])] for m in late))})" if late else "")])
-    expected = settings["rate_per_publisher"] * len(publishers) * (t_remove - t_cut)
+    expected = settings["rate_per_publisher"] * len(publishers) * (t_remove - t_cut_done)
     out += ["### Delivery at the isolated peers", "",
-            f"Messages published between the cut and T_remove: missed by the isolated peer. Expected about publish rate × "
-            f"isolation = {expected:.0f} (both publishers). Late arrival: a message published before T_remove that arrived "
+            f"Messages published between the end of the cut and T_remove: missed by the isolated peer. Expected about publish rate x "
+            f"isolation = {expected:.0f} (all publishers). Late arrival: a message published before T_remove that arrived "
             f"after it, more than {LATE_S:.0f} s after it was published.", "",
-            table(["peer", "last receipt before the cut", "receipts during (cut + 1 s → T_remove)",
-                   "first receipt after T_remove", "first new message − T_remove", "missed of published during", "late arrivals"], rows), ""]
+            table(["peer", "last receipt before the cut", "receipts during (cut done + 1 s -> T_remove)",
+                   "first receipt after T_remove", "first new message - T_remove", "missed of published during", "late arrivals"], rows), ""]
 
     # Alert firing and resolve times.
     path = run_dir / "metrics" / "alerts.json"
@@ -314,7 +319,7 @@ def analyse(run_dir):
                          fmt_time(last)[:8], secs(last - t_remove)])
     out += ["### Alert DeliveryCompletenessLow", "",
             "First and last firing sample (the export's 5 s grid).", "",
-            table(["subscriber", "publisher", "first firing", "− T_apply", "last firing", "− T_remove"], sorted(rows)) if rows else "No firing samples.", ""]
+            table(["subscriber", "publisher", "first firing", "- T_apply", "last firing", "- T_remove"], sorted(rows)) if rows else "No firing samples.", ""]
     return "\n".join(out)
 
 

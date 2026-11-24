@@ -1,0 +1,19 @@
+{"ts":"2026-11-23T22:51:35.447637Z","event":"connected","peers":"go-0 go-1 go-2 js-0 js-1 js-2"}
+{"ts":"2026-11-23T22:51:35.591746Z","event":"warmup_started","run_id":"warmup-20261123T225134Z-cb27","duration_s":20}
+{"ts":"2026-11-23T22:52:07.531721Z","event":"stable","mesh":"go-0=3 go-1=3 go-2=3 js-0=3 js-1=4 js-2=4"}
+{"ts":"2026-11-23T22:52:08.180138Z","event":"run_started","run_id":"iso-20261123T225134Z-cb27","scenario":"iso","rate":10,"size":1024,"duration_s":420,"publishers":"go-1"}
+{"ts":"2026-11-23T22:54:08.682606Z","event":"isolation_enabled","policy":"isolate","peers":"go-2 js-2","done_at":"2026-11-23T22:54:08.971460Z"}
+{"ts":"2026-11-23T22:54:09.024453Z","event":"connections_cut","ips":"10.244.1.5 10.244.2.9","conntrack_entries_deleted":132,"done_at":"2026-11-23T22:54:10.234862Z"}
+{"ts":"2026-11-23T22:54:12.462428Z","event":"isolation_check","peer":"go-2","to":"go-0","result":"fail"}
+{"ts":"2026-11-23T22:54:12.741531Z","event":"isolation_check","peer":"go-2","to":"js-2","result":"ok"}
+{"ts":"2026-11-23T22:54:15.014195Z","event":"isolation_check","peer":"go-0","to":"go-2","result":"fail"}
+{"ts":"2026-11-23T22:56:08.213642Z","event":"isolation_disabled","policy":"isolate","peers":"go-2 js-2","done_at":"2026-11-23T22:56:08.454844Z"}
+{"ts":"2026-11-23T22:56:08.652940Z","event":"isolation_check","peer":"go-2","to":"go-0","result":"ok"}
+{"ts":"2026-11-23T22:56:08.942420Z","event":"isolation_check","peer":"go-2","to":"js-2","result":"ok"}
+{"ts":"2026-11-23T22:56:09.210921Z","event":"isolation_check","peer":"go-0","to":"go-2","result":"ok"}
+{"ts":"2026-11-23T22:59:09.224331Z","event":"run_stopped","run_id":"iso-20261123T225134Z-cb27"}
+{"ts":"2026-11-23T22:59:09.428003Z","event":"isolation_check","peer":"go-2","to":"go-0","result":"ok"}
+{"ts":"2026-11-23T22:59:09.679755Z","event":"isolation_check","peer":"go-2","to":"js-2","result":"ok"}
+{"ts":"2026-11-23T22:59:09.923244Z","event":"isolation_check","peer":"go-0","to":"go-2","result":"ok"}
+{"ts":"2026-11-23T22:59:10.048404Z","event":"mesh_after","mesh":"go-0=3 go-1=3 go-2=3 js-0=4 js-1=4 js-2=3"}
+{"ts":"2026-11-23T22:59:30.856013Z","event":"exported","logs_lines":53638,"metrics_files":15}

@@ -5,8 +5,8 @@
 #   scripts/run.sh base [duration_s]                              Scenario A, default 300 s
 #   scripts/run.sh iso  [duration_s] [isolate_at_s] [isolation_s]  Scenario B, default 420 120 120
 #
-# Settings from the environment: RATE (msg/s per publisher, default 10), SIZE
-# (bytes per message, default 1024).
+# Settings from the environment: PUBLISHERS (default go-1), RATE (msg/s per
+# publisher, default 10), SIZE (bytes per message, default 1024).
 #
 # Steps: wait until every peer has 5 connections; a 20 s warm-up run (the first
 # messages after a peer joins can be lost, Phase 1); wait until every mesh has
@@ -41,7 +41,7 @@ CLOCK_NODE="${CLUSTER}-control-plane"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # The peers, the publishers, and the isolated peers (k8s/isolate.yaml).
 PEERS="go-0 go-1 go-2 js-0 js-1 js-2"
-PUBLISHERS="go-1 js-1"
+PUBLISHERS="${PUBLISHERS:-go-1}"
 ISOLATED="go-2 js-2"
 # Workload per publisher.
 RATE="${RATE:-10}"

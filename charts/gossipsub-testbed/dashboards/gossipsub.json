@@ -154,7 +154,7 @@
       "description": "How to read this dashboard.",
       "options": {
         "mode": "markdown",
-        "content": "### GossipSub testbed: one run\n\n**Peers**: 6 on one topic, `go-0..2` (go-libp2p) and `js-0..2` (js-libp2p), 2 per kind worker. Mesh D = 3.\n**Workload**: publishers `go-1` and `js-1`, 10 msg/s each (Phase 3 default: 1 KiB). Pick the run in **run_id**; set the time range to cover it.\n**Isolated in Phase 3**: `go-2` and `js-2` (dashed lines); the window shows as a red annotation.\n\n**What to look for**: completeness 100 % for every subscriber; latency a few ms; connected peers 5 everywhere; no throttling, no restarts; `up` 1 for all peers.\nRows 8–10 are from the logs (VictoriaLogs); the rest from Prometheus. Colours: Go blue, JS orange."
+        "content": "### GossipSub testbed: one run\n\n**Peers**: 6 on one topic, `go-0..2` (go-libp2p) and `js-0..2` (js-libp2p), 2 per kind worker. Mesh D = 3.\n**Workload**: `go-1` publishes 10 msg/s with 1 KiB messages (the defaults of a run). Pick the run in **run_id**; set the time range to cover it.\n**Isolated in Scenario B**: `go-2` and `js-2` (dashed lines); the window shows as a red annotation.\n\n**What to look for**: completeness 100 % for every subscriber; latency a few ms; connected peers 5 everywhere; no throttling, no restarts; `up` 1 for all peers.\nRows 8–10 are from the logs (VictoriaLogs); the rest from Prometheus. Colours: Go blue, JS orange."
       },
       "id": 2,
       "gridPos": {
@@ -167,7 +167,7 @@
     {
       "type": "stat",
       "title": "Publish rate, last 30 s",
-      "description": "Successful publishes per second of the run, all publishers. Expected: 20 (2 × 10) during a run, 0 after it.",
+      "description": "Successful publishes per second of the run, all publishers. Expected: 10 per publisher during a run, 0 after it.",
       "targets": [
         {
           "datasource": {
@@ -3998,7 +3998,7 @@
     {
       "type": "table",
       "title": "isolation_check results",
-      "description": "Connection checks from go-2 during an isolation (Phase 3): to go-0 must fail, to js-2 must succeed. Empty in a baseline.",
+      "description": "Connection checks during an isolation (Scenario B): go-2 to go-0 must fail, to js-2 must succeed. Empty in a baseline.",
       "targets": [
         {
           "datasource": {

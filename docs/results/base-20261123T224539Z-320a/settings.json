@@ -1,0 +1,33 @@
+{
+  "run_id": "base-20261123T224539Z-320a",
+  "scenario": "base",
+  "rate_per_publisher": 10,
+  "size_bytes": 1024,
+  "duration_s": 300,
+  "isolate_at_s": null,
+  "isolation_s": null,
+  "publishers": [
+    "go-1"
+  ],
+  "isolated": [],
+  "start": "2026-11-23T22:46:13.278521Z",
+  "end": "2026-11-23T22:51:13.773575Z",
+  "versions": {
+    "kindnet": "docker.io/kindest/kindnetd:v20260820-69b56db7",
+    "kubernetes": "v1.36.4",
+    "chart": "gossipsub-testbed-0.1.0 revision 4",
+    "commit": "1d8f856-dirty",
+    "go_peer_image": "docker.io/library/import-2026-11-23@sha256:a308d64e0b286d772ff01a8520b6b13936b7f5d2bc33b1f98b4c1407eb96742e",
+    "js_peer_image": "sha256:2b08731e077696a1c69c0903739ed72771af1ed6423f07de0e9678ebce6587f8"
+  },
+  "transport": {
+    "yamux_keepalive_s": 30,
+    "redial_interval_s": 5,
+    "gossipsub": {
+      "D": 3,
+      "Dlo": 3,
+      "Dhi": 4,
+      "prune_backoff_s": 60
+    }
+  }
+}

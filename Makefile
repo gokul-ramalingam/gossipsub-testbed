@@ -108,9 +108,9 @@ isolate-off: ## End the isolation and check
 isolate-check: ## Run the isolation checks only
 	scripts/isolate.sh check
 
-# analyze: ## Analyse a run again: make analyze RUN=<run_id>
-# 	@test -n "$(RUN)" || { echo "usage: make analyze RUN=<run_id>"; exit 2; }
-# 	python3 scripts/analyze.py runs/$(RUN)
+analyze: ## Analyse a run again: make analyze RUN=<run_id>
+	@test -n "$(RUN)" || { echo "usage: make analyze RUN=<run_id>"; exit 2; }
+	python3 scripts/analyze.py runs/$(RUN)
 
 # --- user interfaces (port-forwards; stop with Ctrl-C) ----------------------------
 
@@ -125,9 +125,9 @@ logs-ui: ## VictoriaLogs UI on http://localhost:9428/select/vmui/
 
 # --- checks -------------------------------------------------------------------------
 
-test: ## Unit tests of the Go and JS peers
+test: ## Unit tests of the Go and JS peers (installs the JS dependencies with npm ci)
 	cd peers/go-peer && go test -race ./...
-	cd peers/js-peer && npm test
+	cd peers/js-peer && npm ci --no-audit --no-fund && npm test
 
 test-alert: ## promtool test of the alert rule installed in the cluster
 	scripts/test-alert.sh
@@ -135,6 +135,3 @@ test-alert: ## promtool test of the alert rule installed in the cluster
 lint: ## shellcheck of the scripts, helm lint of the chart
 	shellcheck scripts/*.sh
 	helm lint charts/gossipsub-testbed
-
-# Optional local targets, not in the repository (git-ignored).
--include local.mk
