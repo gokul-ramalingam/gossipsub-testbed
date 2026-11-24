@@ -13,27 +13,30 @@ import { peerId } from '../src/p2p/identity.js';
  *
  * @returns {Promise<number>} the port
  */
-async function freePort() {
+const freePort = async () => {
   const server = createServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   await new Promise((resolve) => server.close(resolve));
 
   return port;
-}
+};
 
 /**
- * Returns a logger with the pino methods that records the events as [event, fields].
+ * Returns a logger that records the events as [event, fields].
  *
  * @returns {{ logger: object, events: Array<[string, object]> }} the logger and its records
  */
-function recordingLogger() {
+const recordingLogger = () => {
   const events = [];
-  const record = (fields, event) => events.push([event, fields]);
+  /** Records one log event. */
+  const record = (fields, event) => {
+    events.push([event, fields]);
+  };
   const logger = { debug: record, info: record, warn: record, error: record };
 
   return { logger, events };
-}
+};
 
 /**
  * Polls cond every 20 ms for up to 5 s.
@@ -41,14 +44,14 @@ function recordingLogger() {
  * @param {string} what - what the test waits for
  * @param {() => boolean} cond - the condition
  */
-async function waitFor(what, cond) {
+const waitFor = async (what, cond) => {
   const deadline = Date.now() + 5000;
 
   while (!cond()) {
     assert.ok(Date.now() < deadline, `timeout: ${what}`);
     await sleep(20);
   }
-}
+};
 
 test('two JS peers connect, list each other and log one event per peer', async () => {
   const ports = [await freePort(), await freePort()];
@@ -64,15 +67,17 @@ test('two JS peers connect, list each other and log one event per peer', async (
   try {
     await Promise.all(servers.map((server) => server.start()));
 
-    /** @param {number} i @param {string} event @param {string} remote */
-    const count = (i, event, remote) => logs[i].events.filter(([e, f]) => e === event && f.remote === remote).length;
+    /** Counts the events of peer i for remote. */
+    const count = (i, event, remote) => {
+      return logs[i].events.filter(([e, f]) => e === event && f.remote === remote).length;
+    };
 
     await waitFor(
       'both peers log peer_connected',
       () => count(0, EVENT_PEER_CONNECTED, 'js-1') >= 1 && count(1, EVENT_PEER_CONNECTED, 'js-0') >= 1,
     );
 
-    // Let further redial rounds happen; they must not log again.
+    // More redial rounds must not log again.
     await sleep(400);
     assert.equal(count(0, EVENT_PEER_CONNECTED, 'js-1'), 1);
     assert.equal(count(1, EVENT_PEER_CONNECTED, 'js-0'), 1);
@@ -123,32 +128,34 @@ test('the started event names the peer, the versions and the settings', async ()
 test('a restarted peer joins the mesh again at once, not after the prune backoff', async () => {
   const ports = [await freePort(), await freePort()];
   const peers = `js-0=/ip4/127.0.0.1/tcp/${ports[0]},js-1=/ip4/127.0.0.1/tcp/${ports[1]}`;
-  /** @param {number} i @param {object} logger */
-  const create = (i, logger) =>
-    createP2PServer(
+  /** Creates peer js-i. */
+  const create = (i, logger) => {
+    return createP2PServer(
       loadConfig({ PEER_NAME: `js-${i}`, P2P_PORT: String(ports[i]), PEERS: peers, REDIAL_INTERVAL: '100ms' }),
       logger,
     );
+  };
 
   const log0 = recordingLogger();
   const js0 = await create(0, log0.logger);
   let js1 = await create(1, recordingLogger().logger);
-  /** @param {string} event @param {string} remote */
-  const count = (event, remote) => log0.events.filter(([e, f]) => e === event && f.remote === remote).length;
+  /** Counts the events of js-0 for remote. */
+  const count = (event, remote) => {
+    return log0.events.filter(([e, f]) => e === event && f.remote === remote).length;
+  };
 
   try {
     await Promise.all([js0.start(), js1.start()]);
     await waitFor('js-0 grafts js-1', () => count('graft', 'js-1') >= 1);
 
-    // Stop js-1 as index.js does, then start it again with the same name
-    // (so the same peer ID) and port.
+    // Restart js-1 with the same name and port.
     await js1.stop();
     await waitFor('js-0 logs peer_disconnected for js-1', () => count(EVENT_PEER_DISCONNECTED, 'js-1') >= 1);
 
     js1 = await create(1, recordingLogger().logger);
     await js1.start();
 
-    // Within 5 s (waitFor), far below the prune backoff of 1 minute.
+    // Within 5 s, far below the 1-minute prune backoff.
     await waitFor('js-0 grafts the restarted js-1 again', () => count('graft', 'js-1') >= 2);
   } finally {
     await Promise.allSettled([js0.stop(), js1.stop()]);

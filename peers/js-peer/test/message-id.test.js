@@ -10,20 +10,22 @@ import { peerId } from '../src/p2p/identity.js';
 import { encodeMessage } from '../src/utils/message.js';
 
 /** Returns the hex form of bytes. */
-const hex = (bytes) => Buffer.from(bytes).toString('hex');
+const hex = (bytes) => {
+  return Buffer.from(bytes).toString('hex');
+};
 
 test('the message ID is the peer ID followed by the 8-byte sequence number, as DefaultMsgIdFn of the Go peer', async () => {
   const from = await peerId('gossipsub-testbed', 'go-0');
   const id = specMessageId({ type: 'signed', from, sequenceNumber: 0x0102030405060708n });
 
-  assert.equal(hex(id), hex(from.toMultihash().bytes) + '0102030405060708');
+  assert.equal(hex(id), `${hex(from.toMultihash().bytes)}0102030405060708`);
   assert.equal(id.length, 38 + 8);
 });
 
 test('the ID of @libp2p/gossipsub would differ: it uses the public key, without the 2-byte multihash header', async () => {
   const from = await peerId('gossipsub-testbed', 'go-0');
 
-  assert.equal(hex(from.toMultihash().bytes), '0024' + hex(publicKeyToProtobuf(from.publicKey)));
+  assert.equal(hex(from.toMultihash().bytes), `0024${hex(publicKeyToProtobuf(from.publicKey))}`);
 });
 
 test('a message ID that is unsigned is refused', () => {
@@ -36,11 +38,11 @@ test('a message ID that is unsigned is refused', () => {
  * @param {string} runId - the run
  * @returns {Promise<number>} the value
  */
-async function duplicates(runId) {
+const duplicates = async (runId) => {
   const metric = (await register.getMetricsAsJSON()).find((m) => m.name === 'gs_messages_duplicate_total');
 
   return metric?.values.find((v) => v.labels.run_id === runId)?.value ?? 0;
-}
+};
 
 test('the first sight of an ID is new, the later ones are duplicates, until the seen TTL is over', async () => {
   const lines = [];

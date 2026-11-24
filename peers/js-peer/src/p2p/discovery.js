@@ -12,12 +12,7 @@ import {
 } from '../constants.js';
 import { peerId } from './identity.js';
 
-/**
- * Finds the other peers and dials each one that is not connected, once at
- * start and then every redial interval. The targets are the PEERS list or the
- * answers of the SRV lookup of _p2p._tcp.<SRV_NAME>. The peer ID of each
- * target is computed from its name, as in the Go peer.
- */
+/** Finds the other peers and dials each one that is not connected, every redial interval. */
 export class Discovery {
   /** @type {import('libp2p').Libp2p} */
   #node;
@@ -29,13 +24,13 @@ export class Discovery {
   #logger;
   /** @type {Set<string>} peer IDs with a dial in progress */
   #inflight = new Set();
-  /** @type {AbortController | undefined} stops the loop */
+  /** @type {AbortController | undefined} */
   #stop;
 
   /**
    * @param {import('libp2p').Libp2p} node - the node that dials
-   * @param {import('./peer-names.js').PeerNames} names - filled with the name of each target
-   * @param {Readonly<import('../config.js').Config>} config - discovery mode, SRV name, peers, redial interval
+   * @param {import('./peer-names.js').PeerNames} names - peer names, filled for each target
+   * @param {Readonly<import('../config.js').Config>} config - settings of the peer
    * @param {import('pino').Logger} logger - logger of the peer
    */
   constructor(node, names, config, logger) {
@@ -45,10 +40,10 @@ export class Discovery {
     this.#logger = logger;
   }
 
-  /** Starts the loop in the background: one round at once, then one every redial interval. */
+  /** Starts the loop in the background. */
   start() {
     this.#stop = new AbortController();
-    this.#loop(this.#stop.signal);
+    void this.#loop(this.#stop.signal);
   }
 
   /** Stops the loop. Dials in progress end with their timeout. */
@@ -63,7 +58,12 @@ export class Discovery {
    */
   async #loop(signal) {
     while (!signal.aborted) {
-      await this.#round(signal);
+      // A failed round does not end the loop.
+      try {
+        await this.#round(signal);
+      } catch (err) {
+        this.#logger.warn({ error: err.message }, EVENT_DISCOVERY_FAILED);
+      }
 
       try {
         await sleep(this.#config.redialIntervalMs, undefined, { signal });
@@ -79,24 +79,15 @@ export class Discovery {
    * @param {AbortSignal} signal - aborted by stop
    */
   async #round(signal) {
-    let targets;
-    try {
-      targets = await this.#targets();
-    } catch (err) {
-      this.#logger.warn({ error: err.message }, EVENT_DISCOVERY_FAILED);
-      return;
-    }
+    const targets = await this.#targets(); // an error ends the round; #loop logs it
 
     for (const target of targets) {
       if (target.name === this.#config.peerName || signal.aborted) {
         continue;
       }
 
-      let id;
-      try {
-        id = await peerId(this.#config.keySeed, target.name);
-      } catch (err) {
-        this.#logger.error({ remote: target.name, error: err.message }, EVENT_PEER_ID_FAILED);
+      const id = await this.#peerId(target.name);
+      if (!id) {
         continue;
       }
 
@@ -106,15 +97,30 @@ export class Discovery {
         continue;
       }
 
-      this.#dial(target, id);
+      void this.#dial(target, id); // in the background; #dial handles its own errors
     }
   }
 
   /**
-   * Dials one peer in the background. It returns at once if a dial to the peer is in progress.
+   * Derives the peer ID of a peer from its name.
    *
-   * @param {import('../utils/peers.js').Target} target - name and address of the peer
-   * @param {import('@libp2p/interface').PeerId} id - peer ID of the peer
+   * @param {string} name - peer name
+   * @returns {Promise<import('@libp2p/interface').PeerId | undefined>} the peer ID; undefined on error
+   */
+  async #peerId(name) {
+    try {
+      return await peerId(this.#config.keySeed, name);
+    } catch (err) {
+      this.#logger.error({ remote: name, error: err.message }, EVENT_PEER_ID_FAILED);
+      return undefined;
+    }
+  }
+
+  /**
+   * Dials one peer, unless a dial to it is in progress.
+   *
+   * @param {import('../utils/peers.js').Target} target - the peer
+   * @param {import('@libp2p/interface').PeerId} id - its peer ID
    */
   async #dial(target, id) {
     const key = id.toString();
@@ -148,28 +154,26 @@ export class Discovery {
 }
 
 /**
- * Resolves _p2p._tcp.<srvName>. Each answer is the hostname of one peer, such
- * as "js-1.peers.dst.svc.cluster.local", and the first label of the hostname
- * is the peer name.
+ * Resolves _p2p._tcp.<srvName> into targets.
  *
  * @param {string} srvName - DNS name of the SRV lookup
  * @returns {Promise<import('../utils/peers.js').Target[]>} the targets
  */
-export async function lookupSrv(srvName) {
+export const lookupSrv = async (srvName) => {
   const records = await resolveSrv(`_p2p._tcp.${srvName}`);
 
   return records.map((record) => srvTarget(record.name, record.port));
-}
+};
 
 /**
- * Converts one SRV answer into a target: the peer name and a /dns4 address.
+ * Converts one SRV answer into a target. The first label of the hostname is the peer name.
  *
  * @param {string} hostname - target of the SRV record
  * @param {number} port - port of the SRV record
  * @returns {import('../utils/peers.js').Target} the target
  */
-export function srvTarget(hostname, port) {
+export const srvTarget = (hostname, port) => {
   const host = hostname.replace(/\.$/, '');
 
   return { name: host.split('.')[0], addr: multiaddr(`/dns4/${host}/tcp/${port}`) };
-}
+};

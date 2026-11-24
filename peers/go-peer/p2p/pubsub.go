@@ -126,6 +126,12 @@ func (g *gossip) run(ctx context.Context) {
 	for {
 		msg, err := g.sub.Next(ctx)
 		if err != nil {
+			// At shutdown ctx is done. Any other end is a failure that would
+			// otherwise stop the deliveries without a trace.
+			if ctx.Err() == nil {
+				g.logger.Error(common.EventSubscriptionEnded, "error", err.Error())
+			}
+
 			return
 		}
 

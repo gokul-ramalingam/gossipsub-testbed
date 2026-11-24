@@ -3,21 +3,14 @@ import { captureDuplicate } from '../metrics.js';
 import { decodeMessage } from '../utils/message.js';
 
 /**
- * The message ID of the libp2p pubsub spec: the from field (the peer ID of
- * the publisher, as bytes) followed by the sequence number (8 bytes, big
- * endian). go-libp2p-pubsub uses it (DefaultMsgIdFn).
- *
- * @libp2p/gossipsub 17.2.1 uses the public key of the publisher instead of
- * its peer ID. For an Ed25519 key, the peer ID is the identity multihash of
- * the public key, so the JS ID is the Go ID without its 2 first bytes. With
- * the two IDs, the IHAVE, IWANT and IDONTWANT messages between a Go peer and a
- * JS peer name messages that the other side does not know. The JS peer
- * therefore uses the spec ID.
+ * Returns the message ID of the pubsub spec: publisher peer ID + sequence
+ * number, as go-libp2p-pubsub. The @libp2p/gossipsub default uses the public
+ * key, so Go and JS peers would not match IHAVE and IWANT IDs.
  *
  * @param {import('@libp2p/interface').Message} msg - a signed message
  * @returns {Uint8Array} the message ID
  */
-export function specMessageId(msg) {
+export const specMessageId = (msg) => {
   if (msg.type !== 'signed') {
     throw new Error('expected a signed message');
   }
@@ -31,18 +24,14 @@ export function specMessageId(msg) {
   id.set(seqno, from.length);
 
   return id;
-}
+};
 
 /**
- * Counts and logs the duplicate copies of messages. GossipSub computes the
- * message ID of each message that this peer publishes and of each message it
- * receives, before its own duplicate check; the first time an ID is seen, the
- * message is new, and each later time within the seen TTL it is a duplicate,
- * as in GossipSub. @libp2p/gossipsub has no event for a duplicate, so the
- * count is made here, where the message data (and so its run) is known.
+ * Counts and logs duplicate messages. The library has no duplicate event, so
+ * each message ID is checked here, within the seen TTL.
  */
 export class DuplicateCounter {
-  /** @type {Map<string, number>} message ID (hex) -> time after which it is forgotten, in ms */
+  /** @type {Map<string, number>} message ID (hex) -> expiry time, ms */
   #seen = new Map();
   /** @type {import('pino').Logger} */
   #logger;
@@ -55,10 +44,10 @@ export class DuplicateCounter {
   }
 
   /**
-   * Records one message. GossipSub calls this through the message ID function.
+   * Records one message, and counts it if it is a duplicate.
    *
-   * @param {Uint8Array} id - the message ID
-   * @param {Uint8Array} data - the message data
+   * @param {Uint8Array} id - message ID
+   * @param {Uint8Array} data - message data
    * @param {number} [nowMs] - current time; Date.now() by default
    */
   observe(id, data, nowMs = Date.now()) {
@@ -70,22 +59,14 @@ export class DuplicateCounter {
       return;
     }
 
-    let decoded;
-    try {
-      decoded = decodeMessage(data);
-    } catch {
-      captureDuplicate('');
-      this.#logger.info({}, EVENT_DUPLICATE);
-      return;
-    }
+    const decoded = decodeOrUndefined(data);
 
-    captureDuplicate(decoded.run_id);
-    this.#logger.info({ run_id: decoded.run_id, seq: decoded.seq }, EVENT_DUPLICATE);
+    captureDuplicate(decoded?.run_id ?? '');
+    this.#logger.info(decoded ? { run_id: decoded.run_id, seq: decoded.seq } : {}, EVENT_DUPLICATE);
   }
 
   /**
-   * Forgets the IDs whose seen TTL is over. The map is in the order of the
-   * first sight, so the expired IDs are at its start.
+   * Forgets the expired IDs. The map is in insertion order, so they are first.
    *
    * @param {number} nowMs - current time
    */
@@ -99,3 +80,17 @@ export class DuplicateCounter {
     }
   }
 }
+
+/**
+ * Decodes a message, or returns undefined.
+ *
+ * @param {Uint8Array} data - message data
+ * @returns {ReturnType<typeof decodeMessage> | undefined} the message; undefined if it does not decode
+ */
+const decodeOrUndefined = (data) => {
+  try {
+    return decodeMessage(data);
+  } catch {
+    return undefined;
+  }
+};

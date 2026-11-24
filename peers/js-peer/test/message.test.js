@@ -6,11 +6,14 @@ import { decodeMessage, encodeMessage } from '../src/utils/message.js';
 /** A message of the test. */
 const MESSAGE = { run_id: 'r1', publisher: 'go-0', seq: 7, ts_us: 1795409542279130 };
 
-/** The same message as encoded by the Go peer (utils.EncodeMessage), without padding. */
+/** The same message as the Go peer encodes it, without padding. */
 const GO_ENCODED = '{"run_id":"r1","publisher":"go-0","seq":7,"ts_us":1795409542279130,"payload":""}';
 
 test('the encoding is the same bytes as the Go peer', () => {
-  const text = (size) => new TextDecoder().decode(encodeMessage(MESSAGE, size));
+  /** Returns the encoded message as text. */
+  const text = (size) => {
+    return new TextDecoder().decode(encodeMessage(MESSAGE, size));
+  };
 
   assert.equal(text(0), GO_ENCODED);
   assert.equal(text(100), GO_ENCODED.replace('"payload":""', `"payload":"${'x'.repeat(20)}"`));

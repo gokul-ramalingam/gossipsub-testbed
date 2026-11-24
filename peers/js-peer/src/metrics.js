@@ -2,12 +2,7 @@ import { collectDefaultMetrics, Counter, Gauge, Histogram } from '@prometheus-io
 
 import { CONTROL_IHAVE, CONTROL_IWANT, LATENCY_BUCKETS } from './constants.js';
 
-/**
- * Metrics of the peer, in the default registry that GET /metrics serves. The
- * names, labels and buckets are the same as in the Go peer (metrics/metrics.go).
- * The p2p layer and the publish service write them; /metrics reads them. The
- * scraper adds the labels of the scrape target.
- */
+// Metrics of the peer. Names, labels and buckets match the Go peer.
 
 /** Publish attempts per run. */
 const publishAttempts = new Counter({
@@ -59,7 +54,7 @@ const deliveryLatency = new Histogram({
   buckets: [...LATENCY_BUCKETS],
 });
 
-/** Deliveries with a receive time before the publication time; must stay at 0 when the peers share one clock. */
+/** Deliveries received before their publication time; 0 when the peers share one clock. */
 const latencyNegative = new Counter({
   name: 'gs_latency_negative_total',
   help: 'Deliveries with a negative latency (clock check).',
@@ -82,42 +77,50 @@ const topicPeers = new Gauge({ name: 'gs_topic_peers', help: 'Peers subscribed t
 /** Peers in the GossipSub mesh of this peer for the topic. */
 const meshPeers = new Gauge({ name: 'gs_mesh_peers', help: 'Peers in the GossipSub mesh of this peer for the topic.' });
 
-// The two series of gs_rpc_control_total exist from the start, so that a
-// panel shows 0, not "no data", when no IHAVE or IWANT arrives (as the Go peer).
+// Create both series now, so that a panel shows 0, not "no data".
 rpcControl.labels(CONTROL_IHAVE).inc(0);
 rpcControl.labels(CONTROL_IWANT).inc(0);
 
-// Process and Node.js metrics (process_*, nodejs_*), as the Go peer has process_* and go_*.
+// process_* and nodejs_* metrics.
 collectDefaultMetrics();
 
-/** @param {string} runId - the run */
-export function capturePublishAttempt(runId) {
+/**
+ * Counts one publish attempt.
+ *
+ * @param {string} runId - run ID
+ */
+export const capturePublishAttempt = (runId) => {
   publishAttempts.labels(runId).inc();
-}
-
-/** @param {string} runId - the run */
-export function capturePublishSuccess(runId) {
-  publishSuccess.labels(runId).inc();
-}
+};
 
 /**
- * @param {string} runId - the run
+ * Counts one successful publish.
+ *
+ * @param {string} runId - run ID
+ */
+export const capturePublishSuccess = (runId) => {
+  publishSuccess.labels(runId).inc();
+};
+
+/**
+ * Counts one failed publish.
+ *
+ * @param {string} runId - run ID
  * @param {string} reason - encode or publish
  */
-export function capturePublishError(runId, reason) {
+export const capturePublishError = (runId, reason) => {
   publishErrors.labels(runId, reason).inc();
-}
+};
 
 /**
- * Counts one unique delivery and records its latency. A negative latency goes
- * to gs_latency_negative_total, not to the histogram.
+ * Counts one unique delivery and records its latency. A negative latency is counted apart.
  *
- * @param {string} runId - the run
- * @param {string} publisher - name of the publisher
- * @param {string} source - name of the peer that sent the first copy
+ * @param {string} runId - run ID
+ * @param {string} publisher - publisher name
+ * @param {string} source - peer that sent the first copy
  * @param {number} latencySeconds - receive time minus publication time
  */
-export function captureDelivery(runId, publisher, source, latencySeconds) {
+export const captureDelivery = (runId, publisher, source, latencySeconds) => {
   messagesReceived.labels(runId, publisher).inc();
 
   if (latencySeconds < 0) {
@@ -126,64 +129,76 @@ export function captureDelivery(runId, publisher, source, latencySeconds) {
   }
 
   deliveryLatency.labels(runId, publisher, source).observe(latencySeconds);
-}
+};
 
-/** @param {string} runId - the run of the duplicate; empty if the message does not decode */
-export function captureDuplicate(runId) {
+/**
+ * Counts one duplicate.
+ *
+ * @param {string} runId - run ID; empty if the message does not decode
+ */
+export const captureDuplicate = (runId) => {
   messagesDuplicate.labels(runId).inc();
-}
+};
 
-/** @param {string} reason - why the message was rejected */
-export function captureRejected(reason) {
+/**
+ * Counts one rejected message.
+ *
+ * @param {string} reason - why the message was rejected
+ */
+export const captureRejected = (reason) => {
   messagesRejected.labels(reason).inc();
-}
+};
 
 /**
+ * Counts the message IDs of received control messages.
+ *
  * @param {string} type - IHAVE or IWANT
- * @param {number} count - message IDs in the control messages
+ * @param {number} count - message IDs
  */
-export function captureRpcControl(type, count) {
+export const captureRpcControl = (type, count) => {
   rpcControl.labels(type).inc(count);
-}
-
-/** @param {number} count - connected peers */
-export function setConnectedPeers(count) {
-  connectedPeers.set(count);
-}
-
-/** @param {number} count - peers subscribed to the topic */
-export function setTopicPeers(count) {
-  topicPeers.set(count);
-}
-
-/** @param {number} count - peers in the mesh */
-export function setMeshPeers(count) {
-  meshPeers.set(count);
-}
+};
 
 /**
- * Internal metrics of @libp2p/gossipsub that feed a gs_* metric. The library
- * has no tracer like go-libp2p-pubsub; its metricsRegister option is the
- * documented way to get these values.
+ * Sets the connected peer count.
+ *
+ * @param {number} count - connected peers
  */
+export const setConnectedPeers = (count) => {
+  connectedPeers.set(count);
+};
+
+/**
+ * Sets the topic peer count.
+ *
+ * @param {number} count - peers subscribed to the topic
+ */
+export const setTopicPeers = (count) => {
+  topicPeers.set(count);
+};
+
+/**
+ * Sets the mesh peer count.
+ *
+ * @param {number} count - peers in the mesh
+ */
+export const setMeshPeers = (count) => {
+  meshPeers.set(count);
+};
+
+/** Metrics of @libp2p/gossipsub that feed a gs_* metric. The others are dropped. */
 const GOSSIPSUB_METRICS = {
-  /** Message IDs in received IHAVE messages, per topic (the testbed has one topic). */
   gossipsub_ihave_rcv_msgids_total: (labels, value) => captureRpcControl(CONTROL_IHAVE, value),
-  /** Message IDs in received IWANT messages, per topic. */
   gossipsub_iwant_rcv_msgids_total: (labels, value) => captureRpcControl(CONTROL_IWANT, value),
-  /** Invalid messages, by reason. */
   gossipsub_msg_received_invalid_total: (labels, value) => messagesRejected.labels(String(labels.error)).inc(value),
 };
 
 /**
- * Returns the metricsRegister of @libp2p/gossipsub: the metrics named in
- * GOSSIPSUB_METRICS go to their gs_* metric; the others are dropped, because
- * the dashboard uses only the gs_* metrics.
+ * Returns the metricsRegister for @libp2p/gossipsub. It sends GOSSIPSUB_METRICS to the gs_* metrics.
  *
  * @returns {object} a MetricsRegister of @libp2p/gossipsub
  */
-export function gossipsubMetricsRegister() {
-  /** A metric of the library that is not used. */
+export const gossipsubMetricsRegister = () => {
   const unused = { inc() {}, set() {}, observe() {}, addCollect() {}, reset() {}, startTimer: () => () => {} };
 
   return {
@@ -195,7 +210,7 @@ export function gossipsubMetricsRegister() {
 
       return {
         ...unused,
-        // inc(value) or inc(labels, value), as the library calls it.
+        // The library calls inc(value) or inc(labels, value).
         inc(labelsOrValue, value) {
           const labels = typeof labelsOrValue === 'object' ? labelsOrValue : {};
           const amount = typeof labelsOrValue === 'object' ? (value ?? 1) : (labelsOrValue ?? 1);
@@ -206,4 +221,4 @@ export function gossipsubMetricsRegister() {
     histogram: () => unused,
     avgMinMax: () => unused,
   };
-}
+};

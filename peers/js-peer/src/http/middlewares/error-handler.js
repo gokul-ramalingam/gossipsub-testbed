@@ -2,16 +2,13 @@ import { CODE_BAD_REQUEST, CODE_INTERNAL_ERROR, EVENT_HTTP_PANIC } from '../../c
 import { errorResponse } from '../../utils/response.js';
 
 /**
- * Turns an error of a handler into a JSON response. A body that is not valid
- * JSON gives 400 BAD_REQUEST, as in the Go peer. Any other error gives 500
- * INTERNAL_ERROR and one http_panic line with the stack, as the recovery
- * middleware of the Go peer.
+ * Turns a handler error into a JSON response: 400 for invalid JSON, else 500 and an http_panic log line.
  *
  * @param {import('pino').Logger} logger - logger of the peer
  * @returns {import('express').ErrorRequestHandler} the middleware
  */
-export function errorHandler(logger) {
-  // Express recognises an error handler by its four parameters.
+export const errorHandler = (logger) => {
+  // Express needs four parameters to see an error handler.
   // eslint-disable-next-line no-unused-vars
   return (err, req, res, next) => {
     if (err.type === 'entity.parse.failed') {
@@ -22,4 +19,4 @@ export function errorHandler(logger) {
     logger.error({ method: req.method, path: req.path, error: err.message, stack: err.stack }, EVENT_HTTP_PANIC);
     res.status(500).json(errorResponse(CODE_INTERNAL_ERROR, 'internal error', 'Internal server error'));
   };
-}
+};

@@ -1,7 +1,4 @@
-/**
- * Maps peer IDs to peer names, so that the logs and the metrics name a remote
- * peer by its name (go-1) instead of its peer ID. Discovery fills it.
- */
+/** Maps peer IDs to peer names for the logs and metrics. */
 export class PeerNames {
   /** @type {Map<string, string>} peer ID -> peer name */
   #names = new Map();
@@ -17,8 +14,7 @@ export class PeerNames {
   }
 
   /**
-   * Returns the name of a peer ID, or the short peer ID if the peer is unknown.
-   * The short form is the same as ShortString of the Go peer: <peer.ID 12*xxxxxx>.
+   * Returns the name of a peer ID, or the short peer ID, as the Go peer, if unknown.
    *
    * @param {import('@libp2p/interface').PeerId} id - the peer ID
    * @returns {string} the name

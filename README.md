@@ -100,6 +100,8 @@ GET  /publish/status   state and counts of the current or last run
 GET  /metrics
 ```
 
+A peer runs one run at a time and accepts each run ID once. A start during a run, or with a used run ID, gets 409.
+
 A message holds the run ID, the publisher, a sequence number and the publication time in microseconds. The publisher sends message n at start + (n-1)/rate. After a delay, it sends the late messages at once.
 
 Metrics (Prometheus adds `pod` and `impl`):

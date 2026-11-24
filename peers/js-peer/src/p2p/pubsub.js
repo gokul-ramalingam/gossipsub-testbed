@@ -15,17 +15,13 @@ import { decodeMessage } from '../utils/message.js';
 import { specMessageId } from './message-id.js';
 
 /**
- * Returns the GossipSub service for the libp2p node:
- * - the settings of the Go peer where the defaults of the two implementations differ;
- * - the message ID of the pubsub spec, the same as the Go peer (see message-id.js),
- *   with each ID passed to the duplicate counter;
- * - the internal metrics of the library sent to the gs_* metrics that they feed.
+ * Returns the GossipSub service with the settings and the message ID of the Go peer.
  *
- * @param {string} topic - the topic of the testbed
+ * @param {string} topic - topic of the testbed
  * @param {import('./message-id.js').DuplicateCounter} duplicates - counts the duplicate copies
- * @returns {Function} the service factory for the services option of createLibp2p
+ * @returns {Function} the service factory for createLibp2p
  */
-export function gossipsubService(topic, duplicates) {
+export const gossipsubService = (topic, duplicates) => {
   return gossipsub({
     ...GOSSIPSUB_OPTIONS,
     msgIdFn: (msg) => {
@@ -36,13 +32,9 @@ export function gossipsubService(topic, duplicates) {
     metricsRegister: gossipsubMetricsRegister(),
     metricsTopicStrToLabel: new Map([[topic, topic]]),
   });
-}
+};
 
-/**
- * The GossipSub part of the peer: one topic. It publishes to the topic, logs
- * and counts each unique delivery, logs the mesh changes, and samples the
- * topic and mesh peer counts.
- */
+/** Publishes to the topic, and logs and counts the deliveries and the mesh changes. */
 export class Gossip {
   /** @type {import('@libp2p/gossipsub').GossipSub} */
   #pubsub;
@@ -58,13 +50,13 @@ export class Gossip {
   #onGraft;
   /** @type {(event: CustomEvent) => void} */
   #onPrune;
-  /** @type {NodeJS.Timeout | undefined} samples the topic and mesh peer counts */
+  /** @type {NodeJS.Timeout | undefined} */
   #sampler;
 
   /**
-   * @param {import('@libp2p/gossipsub').GossipSub} pubsub - the GossipSub service of the node
-   * @param {string} topic - the topic of the testbed
-   * @param {import('./peer-names.js').PeerNames} names - peer ID -> peer name, for the source and remote fields
+   * @param {import('@libp2p/gossipsub').GossipSub} pubsub - GossipSub service of the node
+   * @param {string} topic - topic of the testbed
+   * @param {import('./peer-names.js').PeerNames} names - peer names
    * @param {import('pino').Logger} logger - logger of the peer
    */
   constructor(pubsub, topic, names, logger) {
@@ -87,12 +79,8 @@ export class Gossip {
   }
 
   /**
-   * Stops the logging and the sampling. It does not leave the topic: leaving
-   * sends a PRUNE to each mesh peer, and a PRUNE makes the peers refuse this
-   * peer ID in their mesh for the prune backoff (1 minute). A restarted pod
-   * has the same name and so the same peer ID, and would stay out of the
-   * meshes for that minute (seen on the cluster). The node closes the
-   * connections when it stops; a closed connection sets no backoff.
+   * Stops the logging and the sampling. It does not leave the topic: a PRUNE
+   * keeps a restarted peer out of the meshes for the 1-minute backoff.
    */
   stop() {
     clearInterval(this.#sampler);
@@ -104,24 +92,20 @@ export class Gossip {
   /**
    * Publishes one encoded message to the topic.
    *
-   * @param {Uint8Array} data - the encoded message
+   * @param {Uint8Array} data - encoded message
    * @returns {Promise<void>}
    */
   async publish(data) {
     await this.#pubsub.publish(this.#topic, data);
   }
 
-  /** @returns {number} the number of peers that are subscribed to the topic */
+  /** @returns {number} the number of peers subscribed to the topic */
   topicPeers() {
     return this.#pubsub.getSubscribers(this.#topic).length;
   }
 
   /**
-   * Records one delivery. gossipsub:message fires only for the first copy of
-   * each message, after validation, and not for the messages of this peer, so
-   * each call is a unique delivery; this is the same point as the
-   * subscription of the Go peer. The latency is the receive time minus the
-   * publication timestamp, exact only when the two peers share one clock.
+   * Logs and counts one delivery. The event fires only for the first copy of a message.
    *
    * @param {{ propagationSource: import('@libp2p/interface').PeerId, msg: { topic: string, data: Uint8Array } }} detail - the event
    * @param {number} receivedAtUs - receive time, Unix microseconds
@@ -133,12 +117,8 @@ export class Gossip {
 
     const source = this.#names.name(propagationSource);
 
-    let decoded;
-    try {
-      decoded = decodeMessage(msg.data);
-    } catch (err) {
-      captureRejected(REASON_DECODE);
-      this.#logger.warn({ reason: REASON_DECODE, source, error: err.message }, EVENT_REJECTED);
+    const decoded = this.#decode(msg.data, source);
+    if (!decoded) {
       return;
     }
 
@@ -152,7 +132,24 @@ export class Gossip {
   }
 
   /**
-   * Logs a mesh change of the topic of the testbed.
+   * Decodes a delivered message, or logs and counts it as rejected.
+   *
+   * @param {Uint8Array} data - message data
+   * @param {string} source - peer that sent the message
+   * @returns {ReturnType<typeof decodeMessage> | undefined} the message; undefined if rejected
+   */
+  #decode(data, source) {
+    try {
+      return decodeMessage(data);
+    } catch (err) {
+      captureRejected(REASON_DECODE);
+      this.#logger.warn({ reason: REASON_DECODE, source, error: err.message }, EVENT_REJECTED);
+      return undefined;
+    }
+  }
+
+  /**
+   * Logs a mesh change of the topic.
    *
    * @param {string} event - graft or prune
    * @param {{ peerId: import('@libp2p/interface').PeerId, topic: string }} detail - the event
@@ -163,11 +160,7 @@ export class Gossip {
     }
   }
 
-  /**
-   * Sets gs_topic_peers and gs_mesh_peers. @libp2p/gossipsub has no event for
-   * a subscription change, and not every mesh change has an event, so both
-   * counts are sampled.
-   */
+  /** Sets the topic and mesh peer gauges. The library has no event for each change. */
   #sample() {
     setTopicPeers(this.topicPeers());
     setMeshPeers(this.#pubsub.getMeshPeers(this.#topic).length);

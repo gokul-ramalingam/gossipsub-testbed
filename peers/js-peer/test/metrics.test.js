@@ -12,12 +12,12 @@ import { gossipsubMetricsRegister } from '../src/metrics.js';
  * @param {Record<string, string>} labels - labels of the series
  * @returns {Promise<number>} the value, 0 if the series does not exist
  */
-async function value(name, labels) {
+const value = async (name, labels) => {
   const metric = (await register.getMetricsAsJSON()).find((m) => m.name === name);
   const series = metric?.values.find((v) => Object.entries(labels).every(([k, l]) => v.labels[k] === l));
 
   return series?.value ?? 0;
-}
+};
 
 test('the gs_* metrics have the names of the Go peer', async () => {
   const names = (await register.getMetricsAsJSON()).map((m) => m.name).filter((n) => n.startsWith('gs_'));

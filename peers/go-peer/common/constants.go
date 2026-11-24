@@ -8,6 +8,8 @@ const (
 	ValidationError = "VALIDATION_ERROR"
 	// AlreadyPublishing is returned when a run is already in progress.
 	AlreadyPublishing = "ALREADY_PUBLISHING"
+	// RunIDUsed is returned when a run starts with a run ID that this peer has already used.
+	RunIDUsed = "RUN_ID_USED"
 	// NotFound is returned for a path that the API does not have.
 	NotFound = "NOT_FOUND"
 	// MethodNotAllowed is returned for a method that the path does not accept.
@@ -80,6 +82,8 @@ const (
 	EventPeerIDFailed = "peer_id_failed"
 	// EventDialFailed is logged at debug level when a dial fails; it repeats every round during an isolation.
 	EventDialFailed = "dial_failed"
+	// EventSubscriptionEnded is logged when the topic subscription ends while the peer runs: the peer no longer receives.
+	EventSubscriptionEnded = "subscription_ended"
 	// EventGraft is logged when a remote peer joins the mesh of this peer.
 	EventGraft = "graft"
 	// EventPrune is logged when a remote peer leaves the mesh of this peer.

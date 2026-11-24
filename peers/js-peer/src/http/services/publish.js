@@ -3,33 +3,33 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import {
   EVENT_PUBLISHED,
   EVENT_PUBLISH_FAILED,
+  EVENT_RUN_FAILED,
   EVENT_RUN_STARTED,
   EVENT_RUN_STOPPED,
   REASON_ENCODE,
   REASON_PUBLISH,
 } from '../../constants.js';
-import { AlreadyPublishingError } from '../../errors.js';
+import { AlreadyPublishingError, RunIdUsedError } from '../../errors.js';
 import { capturePublishAttempt, capturePublishError, capturePublishSuccess } from '../../metrics.js';
 import { formatMicros, nowMicros } from '../../utils/clock.js';
 import { encodeMessage } from '../../utils/message.js';
 
 /**
  * @typedef {object} StartParams
- * @property {string} run_id - run identifier, written to each message and metric
+ * @property {string} run_id - run ID
  * @property {number} rate - messages per second
  * @property {number} size - bytes per encoded message
- * @property {number} duration_s - run length in seconds; 0 = until stop
+ * @property {number} duration_s - run length in seconds; 0 runs until stop
  */
 
 /**
  * @typedef {object} Publisher
- * @property {(data: Uint8Array) => Promise<void>} publish - publishes one encoded message to the topic
+ * @property {(data: Uint8Array) => Promise<void>} publish - publishes one encoded message
  */
 
 /**
- * Publishes one run at a time. Sequence numbers start at 1 in each run. The
- * first message goes at once, then one per interval; a timed run publishes
- * exactly rate × duration messages (as the Go peer).
+ * Publishes one run at a time. Each run ID is accepted once, because the
+ * sequence numbers start at 1 in each run.
  */
 export class PublishService {
   /** @type {Publisher} */
@@ -40,14 +40,16 @@ export class PublishService {
   #logger;
   /** @type {object} state and counts of the current or last run */
   #status = { publishing: false, duration_s: 0, attempts: 0, success: 0, errors: 0, last_seq: 0 };
-  /** @type {AbortController | undefined} ends the current run; undefined when idle */
+  /** @type {AbortController | undefined} undefined when idle */
   #stop;
-  /** @type {Promise<void> | undefined} settles when the publish loop exits; undefined when idle */
+  /** @type {Promise<void> | undefined} settles when the run ends */
   #done;
+  /** @type {Set<string>} run IDs already used */
+  #used = new Set();
 
   /**
    * @param {Publisher} publisher - publishes each message to the topic
-   * @param {string} peerName - name of this peer, written to each message as the publisher
+   * @param {string} peerName - name of this peer
    * @param {import('pino').Logger} logger - logger of the peer
    */
   constructor(publisher, peerName, logger) {
@@ -62,11 +64,18 @@ export class PublishService {
    * @param {StartParams} params - the run
    * @returns {object} the status
    * @throws {AlreadyPublishingError} if a run is in progress
+   * @throws {RunIdUsedError} if the run ID was used before
    */
   start(params) {
     if (this.#status.publishing) {
       throw new AlreadyPublishingError();
     }
+
+    if (this.#used.has(params.run_id)) {
+      throw new RunIdUsedError();
+    }
+
+    this.#used.add(params.run_id);
 
     const startedAtUs = nowMicros();
 
@@ -95,23 +104,25 @@ export class PublishService {
   }
 
   /**
-   * Ends the current run and waits for the publish loop to exit. If no run is
-   * in progress, it returns the last status.
+   * Ends the current run and waits for it to exit.
    *
-   * @returns {Promise<object>} the final status
+   * @returns {Promise<{ status: object, stopped: boolean }>} the final status; stopped is false if no run was in progress
    */
   async stop() {
-    this.#stop?.abort();
+    if (!this.#stop) {
+      return { status: this.status(), stopped: false };
+    }
+
+    this.#stop.abort();
     await this.#done;
 
-    return this.status();
+    return { status: this.status(), stopped: true };
   }
 
-  /** @returns {object} the state and counts of the current or last run, without the unset fields */
+  /** @returns {object} the state and counts of the current or last run, without unset fields */
   status() {
     const status = { ...this.#status };
 
-    // As omitempty and omitzero in the Go peer.
     for (const key of ['run_id', 'rate', 'size', 'started_at', 'stopped_at']) {
       if (!status[key]) {
         delete status[key];
@@ -122,19 +133,12 @@ export class PublishService {
   }
 
   /**
-   * Publishes the first message at once, then one per interval, until stop or
-   * until the next message would be at or after the deadline. The schedule is
-   * fixed from the start time, so that a delay of one message does not move
-   * the next ones; after a stall, the late messages go out at once.
-   *
-   * The schedule is on the monotonic clock (performance.now()), not the wall
-   * clock (Date.now()), like the Go peer: a change of the wall clock during a
-   * run (a VM can set it) would otherwise move every later send time. The wall
-   * clock is still used for started_at, stopped_at and the ts_us of each
-   * message.
+   * Publishes message n at start + (n-1)/rate until stop or the deadline.
+   * After a stall, the late messages go out at once. The schedule uses the
+   * monotonic clock, so a wall clock change does not move it.
    *
    * @param {StartParams} params - the run
-   * @param {number} startedAtMs - start time, on the monotonic clock (performance.now()), milliseconds
+   * @param {number} startedAtMs - start time, performance.now()
    * @param {AbortSignal} signal - aborted by stop
    */
   async #run(params, startedAtMs, signal) {
@@ -156,8 +160,9 @@ export class PublishService {
         await this.#publishOne(params, seq);
       }
     } catch (err) {
+      // An abort is a normal stop. Log any other error: nothing awaits this promise.
       if (!signal.aborted) {
-        throw err;
+        this.#logger.error({ run_id: params.run_id, error: err.message }, EVENT_RUN_FAILED);
       }
     } finally {
       this.#finish();
@@ -165,7 +170,7 @@ export class PublishService {
   }
 
   /**
-   * Encodes and publishes one message, logs it, and updates the metrics and the counts.
+   * Publishes one message, and logs and counts the result.
    *
    * @param {StartParams} params - the run
    * @param {number} seq - sequence number

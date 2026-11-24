@@ -178,10 +178,44 @@ func TestOneRunAtATime(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 
-	status := service.Stop()
-	if status.Publishing || status.RunID != "t3" || status.Attempts < 1 {
-		t.Fatalf("status after stop %+v, want run t3 stopped after at least 1 attempt", status)
+	status, stopped := service.Stop()
+	if !stopped || status.Publishing || status.RunID != "t3" || status.Attempts < 1 {
+		t.Fatalf("stop gave %+v, stopped %v; want run t3 stopped after at least 1 attempt", status, stopped)
 	}
+}
+
+// TestStopIdleAndRunIDOnce checks that Stop reports when no run is in
+// progress, that a run ID is accepted once, and that a start that is refused
+// does not use up its run ID.
+func TestStopIdleAndRunIDOnce(t *testing.T) {
+	service := newTestService(t, &fakePublisher{})
+
+	if _, stopped := service.Stop(); stopped {
+		t.Fatal("stop with no run reported a stopped run")
+	}
+
+	if _, err := service.Start(types.StartParams{RunID: "t6", Rate: 10, Size: 512}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Refused because t6 is in progress: t7 stays unused.
+	if _, err := service.Start(types.StartParams{RunID: "t7", Rate: 10, Size: 512}); !errors.Is(err, common.ErrAlreadyPublishing) {
+		t.Fatalf("start during a run gave %v, want ErrAlreadyPublishing", err)
+	}
+
+	if _, stopped := service.Stop(); !stopped {
+		t.Fatal("stop of a run reported no run")
+	}
+
+	if _, err := service.Start(types.StartParams{RunID: "t6", Rate: 10, Size: 512}); !errors.Is(err, common.ErrRunIDUsed) {
+		t.Fatalf("start with a used run ID gave %v, want ErrRunIDUsed", err)
+	}
+
+	if _, err := service.Start(types.StartParams{RunID: "t7", Rate: 10, Size: 512}); err != nil {
+		t.Fatalf("start with a refused, unused run ID gave %v, want nil", err)
+	}
+
+	service.Stop()
 }
 
 // TestRunDeadline checks that a timed run gets a deadline with the monotonic

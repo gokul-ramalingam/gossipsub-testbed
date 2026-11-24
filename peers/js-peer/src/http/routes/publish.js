@@ -7,12 +7,12 @@ import { methodNotAllowed } from './fallback.js';
 /**
  * Returns the router of /publish/start, /publish/stop and /publish/status.
  *
- * @param {import('../services/publish.js').Publisher} publisher - publishes each message to the topic
- * @param {string} peerName - name of this peer, the publisher name in each message
+ * @param {import('../services/publish.js').Publisher} publisher - publishes to the topic
+ * @param {string} peerName - name of this peer
  * @param {import('pino').Logger} logger - logger of the peer
  * @returns {import('express').Router} the router
  */
-export function publishRoutes(publisher, peerName, logger) {
+export const publishRoutes = (publisher, peerName, logger) => {
   const controller = publishController(new PublishService(publisher, peerName, logger));
   const router = Router();
 
@@ -21,4 +21,4 @@ export function publishRoutes(publisher, peerName, logger) {
   router.route('/publish/status').get(controller.status).all(methodNotAllowed);
 
   return router;
-}
+};

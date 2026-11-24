@@ -25,7 +25,11 @@ const node = {
 
 /** Events logged by the API, as [event, fields]. */
 const events = [];
-const record = (fields, event) => events.push([event, fields]);
+
+/** Records one log event. */
+const record = (fields, event) => {
+  events.push([event, fields]);
+};
 const logger = { debug: record, info: record, warn: record, error: record };
 
 const server = createHttpServer({ node, peerName: 'js-0', port: 0, logger });
@@ -46,12 +50,12 @@ after(() => server.stop());
  * @param {string} [body] - raw request body
  * @returns {Promise<{ status: number, body: any }>} the response
  */
-async function call(method, path, body) {
+const call = async (method, path, body) => {
   const res = await fetch(base + path, { method, body, headers: body ? { 'content-type': 'application/json' } : {} });
   const text = await res.text();
 
   return { status: res.status, body: text.startsWith('{') ? JSON.parse(text) : text };
-}
+};
 
 /**
  * Starts a run with the given body.
@@ -59,7 +63,9 @@ async function call(method, path, body) {
  * @param {object} params - the start request
  * @returns {Promise<{ status: number, body: any }>} the response
  */
-const start = (params) => call('POST', '/publish/start', JSON.stringify(params));
+const start = (params) => {
+  return call('POST', '/publish/start', JSON.stringify(params));
+};
 
 test('GET /healthz and GET /connections', async () => {
   assert.deepEqual(await call('GET', '/healthz'), {
@@ -152,6 +158,24 @@ test('stop ends a run without a duration', async () => {
     `${body.data.attempts} attempts in about 220 ms at 20 msg/s`,
   );
   assert.ok(body.data.stopped_at);
+});
+
+test('stop with no run in progress says so, and a used run_id gets 409', async () => {
+  const idle = await call('POST', '/publish/stop');
+  assert.equal(idle.status, 200);
+  assert.equal(idle.body.message, 'No run in progress');
+  assert.equal(idle.body.data.run_id, 'h3');
+
+  const reused = await start({ run_id: 'h3', rate: 10, size: 512 });
+  assert.equal(reused.status, 409);
+  assert.equal(reused.body.error.code, 'RUN_ID_USED');
+
+  // h2 was refused while h1 ran, so it is still unused.
+  const fresh = await start({ run_id: 'h2', rate: 10, size: 512 });
+  assert.equal(fresh.status, 200);
+
+  const stopped = await call('POST', '/publish/stop');
+  assert.equal(stopped.body.message, 'Publishing stopped!');
 });
 
 test('GET /metrics serves the Prometheus text format', async () => {

@@ -4,7 +4,7 @@
  * @param {import('../services/metrics.js').MetricsService} service - the metrics of the peer
  * @returns {{ getMetrics: import('express').RequestHandler }} the handler
  */
-export function metricsController(service) {
+export const metricsController = (service) => {
   return {
     /** Serves the Prometheus text format, not the JSON response body. */
     async getMetrics(req, res) {
@@ -14,4 +14,4 @@ export function metricsController(service) {
         .send(await service.metrics());
     },
   };
-}
+};

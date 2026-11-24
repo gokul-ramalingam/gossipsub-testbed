@@ -10,7 +10,7 @@ import { methodNotAllowed } from './fallback.js';
  * @param {import('../services/status.js').PeerLister} peers - lists the connected peers
  * @returns {import('express').Router} the router
  */
-export function statusRoutes(peers) {
+export const statusRoutes = (peers) => {
   const controller = statusController(new StatusService(peers));
   const router = Router();
 
@@ -18,4 +18,4 @@ export function statusRoutes(peers) {
   router.route('/connections').get(controller.getConnections).all(methodNotAllowed);
 
   return router;
-}
+};

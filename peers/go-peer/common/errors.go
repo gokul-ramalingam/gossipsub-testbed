@@ -7,6 +7,9 @@ var (
 	// ErrAlreadyPublishing is returned when a run starts while another run is in progress.
 	ErrAlreadyPublishing = errors.New("already publishing")
 
+	// ErrRunIDUsed is returned when a run starts with a run ID that this peer has already used.
+	ErrRunIDUsed = errors.New("run_id already used")
+
 	// ErrNotFound is returned for a path that the API does not have.
 	ErrNotFound = errors.New("path not found")
 

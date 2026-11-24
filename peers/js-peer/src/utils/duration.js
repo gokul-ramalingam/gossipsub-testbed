@@ -1,7 +1,4 @@
-/**
- * Durations in the format of Go's time.ParseDuration, for example 5s, 200ms or
- * 1m30s, so that the Go and JS peers accept the same REDIAL_INTERVAL values.
- */
+// Durations in the format of Go time.ParseDuration, such as 5s, 200ms or 1m30s.
 
 /** Milliseconds per unit. */
 const UNIT_MS = {
@@ -15,18 +12,17 @@ const UNIT_MS = {
   h: 60 * 60 * 1000,
 };
 
-/** One number with its unit, for example 1.5s. */
+/** One number and its unit, such as 1.5s. */
 const PART = /(\d+(?:\.\d*)?|\.\d+)(ns|us|µs|μs|ms|s|m|h)/gy;
 
 /**
- * Parses a duration such as 5s, 200ms or 1m30s into milliseconds. As in Go, a
- * sign is allowed, "0" needs no unit, and any other number needs one.
+ * Parses a duration into milliseconds. As in Go, "0" needs no unit.
  *
  * @param {string} text - the duration
- * @returns {number} the duration in milliseconds
+ * @returns {number} the duration, ms
  * @throws {Error} if the text is not a duration
  */
-export function parseDuration(text) {
+export const parseDuration = (text) => {
   let rest = text;
   let sign = 1;
 
@@ -56,15 +52,14 @@ export function parseDuration(text) {
   }
 
   return sign * ms;
-}
+};
 
 /**
- * Formats milliseconds as a duration, for example 5s or 200ms, close to the
- * String form of a Go time.Duration for the values that the peer uses.
+ * Formats milliseconds as a duration, such as 5s or 200ms.
  *
- * @param {number} ms - the duration in milliseconds
+ * @param {number} ms - the duration, ms
  * @returns {string} the duration
  */
-export function formatDuration(ms) {
+export const formatDuration = (ms) => {
   return ms >= 1000 ? `${ms / 1000}s` : `${ms}ms`;
-}
+};

@@ -3,12 +3,9 @@ import { ConfigError } from './errors.js';
 import { parseDuration } from './utils/duration.js';
 import { parsePeers } from './utils/peers.js';
 
-/**
- * Settings of the peer, from environment variables. The names, defaults and
- * checks are the same as in the Go peer (env/env.go).
- */
+// Settings of the peer, from environment variables. Names, defaults and checks match the Go peer.
 
-/** Defaults of the settings that are not set. A setting without a default is empty. */
+/** Defaults of the settings. A setting without a default is empty. */
 const DEFAULTS = Object.freeze({
   HTTP_PORT: '8080',
   P2P_PORT: '4001',
@@ -21,33 +18,35 @@ const DEFAULTS = Object.freeze({
 
 /**
  * @typedef {object} Config
- * @property {string} peerName - name of this peer, for example js-0 (PEER_NAME, required)
+ * @property {string} peerName - name of this peer, such as js-0 (PEER_NAME, required)
  * @property {number} httpPort - port of the HTTP API (HTTP_PORT)
  * @property {number} p2pPort - libp2p TCP port (P2P_PORT)
- * @property {string} keySeed - seed of the peer keys, the same on all peers (KEY_SEED)
+ * @property {string} keySeed - seed of the peer keys (KEY_SEED)
  * @property {string} topic - GossipSub topic of the testbed (TOPIC)
- * @property {string} discovery - static (the PEERS list) or srv (a DNS SRV lookup) (DISCOVERY)
- * @property {string} srvName - DNS name of the SRV lookup, required for srv (SRV_NAME)
- * @property {ReadonlyArray<import('./utils/peers.js').Target>} peers - peers of the static discovery (PEERS)
- * @property {number} redialIntervalMs - time between two discovery rounds, in milliseconds (REDIAL_INTERVAL)
+ * @property {string} discovery - static or srv (DISCOVERY)
+ * @property {string} srvName - DNS name of the SRV lookup (SRV_NAME)
+ * @property {ReadonlyArray<import('./utils/peers.js').Target>} peers - static peers (PEERS)
+ * @property {number} redialIntervalMs - time between discovery rounds (REDIAL_INTERVAL)
  * @property {string} logLevel - debug, info, warn or error (LOG_LEVEL)
  */
 
 /**
- * Reads and checks all settings once at start. An empty variable counts as not set.
+ * Reads and checks all settings. An empty variable counts as not set.
  *
- * @param {Record<string, string | undefined>} [env] - the environment; process.env by default
+ * @param {Record<string, string | undefined>} [env] - environment; process.env by default
  * @returns {Readonly<Config>} the checked settings
- * @throws {ConfigError} if a setting is invalid; the message names the setting
+ * @throws {ConfigError} if a setting is invalid
  */
-export function loadConfig(env = process.env) {
+export const loadConfig = (env = process.env) => {
   /**
-   * Returns the value of a setting, or its default if it is not set.
+   * Returns the value of a setting, or its default.
    *
-   * @param {string} key - name of the environment variable
+   * @param {string} key - variable name
    * @returns {string} the value
    */
-  const value = (key) => (env[key] ? env[key] : (DEFAULTS[key] ?? ''));
+  const value = (key) => {
+    return env[key] ? env[key] : (DEFAULTS[key] ?? '');
+  };
 
   const peerName = value('PEER_NAME');
   if (peerName === '') {
@@ -68,23 +67,11 @@ export function loadConfig(env = process.env) {
     throw new ConfigError(`SRV_NAME must be set when DISCOVERY is ${DISCOVERY_SRV}`);
   }
 
-  let peers;
-  try {
-    peers = parsePeers(value('PEERS'));
-  } catch (err) {
-    throw new ConfigError(`PEERS: ${err.message}`, { cause: err });
-  }
+  const peers = peerList(value, 'PEERS');
 
-  const interval = value('REDIAL_INTERVAL');
-  let redialIntervalMs;
-  try {
-    redialIntervalMs = parseDuration(interval);
-  } catch {
-    throw new ConfigError(`REDIAL_INTERVAL must be a duration, got ${JSON.stringify(interval)}`);
-  }
-
+  const redialIntervalMs = duration(value, 'REDIAL_INTERVAL');
   if (redialIntervalMs <= 0) {
-    throw new ConfigError(`REDIAL_INTERVAL must be positive, got ${interval}`);
+    throw new ConfigError(`REDIAL_INTERVAL must be positive, got ${value('REDIAL_INTERVAL')}`);
   }
 
   return Object.freeze({
@@ -99,17 +86,17 @@ export function loadConfig(env = process.env) {
     redialIntervalMs,
     logLevel: value('LOG_LEVEL'),
   });
-}
+};
 
 /**
  * Reads a port number.
  *
- * @param {(key: string) => string} value - returns the value of a setting
- * @param {string} key - name of the environment variable
+ * @param {(key: string) => string} value - reads a setting
+ * @param {string} key - variable name
  * @returns {number} the port
  * @throws {ConfigError} if the value is not an integer from 1 to 65535
  */
-function port(value, key) {
+const port = (value, key) => {
   const text = value(key);
 
   if (!/^[+-]?\d+$/.test(text)) {
@@ -122,4 +109,38 @@ function port(value, key) {
   }
 
   return number;
-}
+};
+
+/**
+ * Reads a list of peers.
+ *
+ * @param {(key: string) => string} value - reads a setting
+ * @param {string} key - variable name
+ * @returns {import('./utils/peers.js').Target[]} the peers
+ * @throws {ConfigError} if an entry is not valid
+ */
+const peerList = (value, key) => {
+  try {
+    return parsePeers(value(key));
+  } catch (err) {
+    throw new ConfigError(`${key}: ${err.message}`, { cause: err });
+  }
+};
+
+/**
+ * Reads a duration, such as "5s".
+ *
+ * @param {(key: string) => string} value - reads a setting
+ * @param {string} key - variable name
+ * @returns {number} the duration, milliseconds
+ * @throws {ConfigError} if the value is not a duration
+ */
+const duration = (value, key) => {
+  const text = value(key);
+
+  try {
+    return parseDuration(text);
+  } catch (err) {
+    throw new ConfigError(`${key} must be a duration, got ${JSON.stringify(text)}`, { cause: err });
+  }
+};

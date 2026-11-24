@@ -2,20 +2,18 @@ import { multiaddr } from '@multiformats/multiaddr';
 
 /**
  * @typedef {object} Target
- * @property {string} name - peer name, for example go-1
- * @property {import('@multiformats/multiaddr').Multiaddr} addr - address to dial, without the /p2p/<peer ID> part
+ * @property {string} name - peer name, such as go-1
+ * @property {import('@multiformats/multiaddr').Multiaddr} addr - address to dial
  */
 
 /**
- * Parses a comma-separated list of <peer name>=<multiaddr> entries, for
- * example "go-1=/ip4/127.0.0.1/tcp/4002,go-2=/ip4/127.0.0.1/tcp/4003". An
- * empty list returns no peers.
+ * Parses a list such as "go-1=/ip4/127.0.0.1/tcp/4002,go-2=/ip4/127.0.0.1/tcp/4003".
  *
- * @param {string} list - the list, as in the PEERS setting
+ * @param {string} list - value of PEERS
  * @returns {Target[]} the peers, in the order of the list
- * @throws {Error} if an entry has no name or no address, or the address is not a multiaddr
+ * @throws {Error} if an entry is not valid
  */
-export function parsePeers(list) {
+export const parsePeers = (list) => {
   const targets = [];
 
   for (const raw of list.split(',')) {
@@ -40,4 +38,4 @@ export function parsePeers(list) {
   }
 
   return targets;
-}
+};

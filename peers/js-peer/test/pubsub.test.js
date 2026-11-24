@@ -16,27 +16,32 @@ import { encodeMessage } from '../src/utils/message.js';
  *
  * @returns {Promise<number>} the port
  */
-async function freePort() {
+const freePort = async () => {
   const server = createServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
   await new Promise((resolve) => server.close(resolve));
 
   return port;
-}
+};
 
 /**
- * Returns a logger with the pino methods that records the received events.
+ * Returns a logger that records the received events.
  *
  * @returns {{ logger: object, received: object[] }} the logger and the fields of each received event
  */
-function receivedLogger() {
+const receivedLogger = () => {
   const received = [];
-  const record = (fields, event) => event === EVENT_RECEIVED && received.push(fields);
+  /** Records one received event. */
+  const record = (fields, event) => {
+    if (event === EVENT_RECEIVED) {
+      received.push(fields);
+    }
+  };
   const logger = { debug: record, info: record, warn: record, error: record };
 
   return { logger, received };
-}
+};
 
 /**
  * Publishes one message of 1 KiB from server.
@@ -45,9 +50,9 @@ function receivedLogger() {
  * @param {string} runId - run of the message
  * @param {number} seq - sequence number
  */
-async function publish(server, runId, seq) {
+const publish = async (server, runId, seq) => {
   await server.publish(encodeMessage({ run_id: runId, publisher: 'js-0', seq, ts_us: nowMicros() }, 1024));
-}
+};
 
 test('three JS peers: a run from js-0 reaches js-1 and js-2 once per message', async () => {
   const messages = 50;
@@ -64,8 +69,7 @@ test('three JS peers: a run from js-0 reaches js-1 and js-2 once per message', a
   try {
     await Promise.all(servers.map((server) => server.start()));
 
-    // As in the Go test: publish warm-up messages until each receiver has one,
-    // because GossipSub loses the messages to a peer that has only just joined.
+    // Warm up until each receiver gets a message: a new mesh peer can miss the first ones.
     const deadline = Date.now() + 10_000;
     for (let seq = 1; !logs.slice(1).every((log) => log.received.some((f) => f.run_id === 'warmup')); seq++) {
       assert.ok(Date.now() < deadline, 'the network did not deliver a warm-up message within 10 s');
@@ -92,12 +96,16 @@ test('three JS peers: a run from js-0 reaches js-1 and js-2 once per message', a
 
     assert.equal(logs[0].received.length, 0, 'js-0 logged its own messages as received');
 
-    // The metrics count the same deliveries: 2 receivers × 50 messages, no negative latency.
+    // 2 receivers × 50 messages, no negative latency.
     const metrics = await register.getMetricsAsJSON();
-    const series = (name, suffix = '') =>
-      metrics
-        .find((m) => m.name === name)
-        ?.values.filter((v) => v.labels.run_id === 'test' && (v.metricName ?? name).endsWith(suffix)) ?? [];
+    /** Returns the series of the test run for a metric. */
+    const series = (name, suffix = '') => {
+      return (
+        metrics
+          .find((m) => m.name === name)
+          ?.values.filter((v) => v.labels.run_id === 'test' && (v.metricName ?? name).endsWith(suffix)) ?? []
+      );
+    };
     assert.equal(
       series('gs_messages_received_total').reduce((sum, v) => sum + v.value, 0),
       2 * messages,

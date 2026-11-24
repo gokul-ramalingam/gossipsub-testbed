@@ -9,8 +9,7 @@ test('nowMicros stays in the millisecond of Date.now()', () => {
     const micros = nowMicros();
     const after = Date.now();
 
-    // In [before, after + 1) ms; the never-go-back rule can keep it a few
-    // microseconds above after a correction.
+    // In [before, after + 1) ms, plus a few microseconds after a correction.
     assert.ok(micros >= before * 1000 && micros < (after + 1) * 1000 + 50, `${micros} µs vs [${before}, ${after}] ms`);
   }
 });

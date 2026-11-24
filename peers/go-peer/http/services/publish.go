@@ -32,7 +32,8 @@ type Node interface {
 	PeerLister
 }
 
-// PublishService publishes one run at a time. Sequence numbers start at 1 in each run.
+// PublishService publishes one run at a time. Sequence numbers start at 1 in
+// each run, so each run needs its own run ID: a run ID is accepted once.
 type PublishService struct {
 	publisher Publisher    // publishes each message to the topic
 	logger    *slog.Logger // logger of the peer
@@ -41,16 +42,18 @@ type PublishService struct {
 	status types.PublishStatus // state and counts of the current or last run
 	cancel context.CancelFunc  // ends the current run, nil when idle
 	done   chan struct{}       // closed when the publish loop exits, nil when idle
+	used   map[string]struct{} // run IDs of the runs started so far
 }
 
 // NewPublishService returns an idle publish service that publishes with
 // publisher and logs to logger.
 func NewPublishService(publisher Publisher, logger *slog.Logger) *PublishService {
-	return &PublishService{publisher: publisher, logger: logger}
+	return &PublishService{publisher: publisher, logger: logger, used: make(map[string]struct{})}
 }
 
 // Start begins a run in the background and returns its initial status. It
-// returns ErrAlreadyPublishing if a run is in progress.
+// returns ErrAlreadyPublishing if a run is in progress, and ErrRunIDUsed if
+// this peer has already started a run with the same run ID.
 func (s *PublishService) Start(params types.StartParams) (types.PublishStatus, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -58,6 +61,12 @@ func (s *PublishService) Start(params types.StartParams) (types.PublishStatus, e
 	if s.status.Publishing {
 		return s.status, common.ErrAlreadyPublishing
 	}
+
+	if _, ok := s.used[params.RunID]; ok {
+		return s.status, common.ErrRunIDUsed
+	}
+
+	s.used[params.RunID] = struct{}{}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	start := time.Now()
@@ -87,18 +96,21 @@ func (s *PublishService) Start(params types.StartParams) (types.PublishStatus, e
 }
 
 // Stop ends the current run and waits for the publish loop to exit. It returns
-// the final status. If no run is in progress, it returns the last status.
-func (s *PublishService) Stop() types.PublishStatus {
+// the final status, and whether a run was in progress. If no run is in
+// progress, it returns the last status and false.
+func (s *PublishService) Stop() (types.PublishStatus, bool) {
 	s.mu.Lock()
 	cancel, done := s.cancel, s.done
 	s.mu.Unlock()
 
-	if cancel != nil {
-		cancel()
-		<-done
+	if cancel == nil {
+		return s.Status(), false
 	}
 
-	return s.Status()
+	cancel()
+	<-done
+
+	return s.Status(), true
 }
 
 // Status returns the state and counts of the current or last run.

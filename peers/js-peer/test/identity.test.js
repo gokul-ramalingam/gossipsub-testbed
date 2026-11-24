@@ -3,13 +3,10 @@ import { test } from 'node:test';
 
 import { peerId } from '../src/p2p/identity.js';
 
-/** Key seed of the tests, the default of KEY_SEED. */
+/** Default KEY_SEED. */
 const KEY_SEED = 'gossipsub-testbed';
 
-/**
- * Peer IDs computed by the Go peer (p2p.PeerID) for the same seed and names.
- * The JS peer must give the same values, or the peers cannot dial each other.
- */
+/** Peer IDs from the Go peer for the same seed. The JS peer must match them. */
 const GO_PEER_IDS = {
   'go-0': '12D3KooWHZAu1VmTeA2Zh2CFgBUUoFaYKYp9yppWygjjSPEaA3Mu',
   'go-1': '12D3KooWJww7rkc22H2Bsx31rewaZtbR98FhsuEeSGrSnEswPTMQ',

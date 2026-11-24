@@ -9,11 +9,11 @@ import { methodNotAllowed } from './fallback.js';
  *
  * @returns {import('express').Router} the router
  */
-export function metricsRoutes() {
+export const metricsRoutes = () => {
   const controller = metricsController(new MetricsService());
   const router = Router();
 
   router.route('/metrics').get(controller.getMetrics).all(methodNotAllowed);
 
   return router;
-}
+};

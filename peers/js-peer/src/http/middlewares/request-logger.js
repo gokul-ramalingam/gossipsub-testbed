@@ -1,20 +1,15 @@
 import { EVENT_HTTP_REQUEST } from '../../constants.js';
 
-/**
- * Paths that are not logged. Prometheus scrapes /metrics every few seconds,
- * the probes call /healthz often, and the run script polls /connections until
- * the network is ready, so their lines would hide the events of the experiment.
- */
+/** Paths not logged: they are polled often and would hide the run events. */
 const QUIET_PATHS = new Set(['/metrics', '/healthz', '/connections']);
 
 /**
- * Logs one http_request line for each API request, when the response is
- * sent, with the method, path, status and duration.
+ * Logs one http_request line per API request: method, path, status and duration.
  *
  * @param {import('pino').Logger} logger - logger of the peer
  * @returns {import('express').RequestHandler} the middleware
  */
-export function requestLogger(logger) {
+export const requestLogger = (logger) => {
   return (req, res, next) => {
     const start = process.hrtime.bigint();
 
@@ -36,4 +31,4 @@ export function requestLogger(logger) {
 
     next();
   };
-}
+};
